@@ -1,0 +1,208 @@
+
+## 说明
+- 仅作了解，体会 ASN.1 编码思想，并不作深入研究；
+
+## ASN.1 的协议数据单元(PDU)
++ 协议数据单元 PDU 是信息传输的最小单位，以TCP/IP参考模型举例：
+
+|    名称    |             PDU             |                       作用                       |
+|------------|-----------------------------|--------------------------------------------------|
+| 传输层     | TCP网络报文段或UDP数据报    | 负责将数据传递给正确的软件应用                   |
+| 网络层     | IP分组或包                  | 在多连通网络上传输数据                           |
+| 数据链路层 | 帧                          | 将01比特流组织成块，并将其放置于线缆上正确的位置 |
+| 物理层     | 比特流                      | 在线缆、光纤上传输01比特流                       |
++ ASN.1 的PDU示例
+  ```shell
+    myQuestion FooQuestion ::= {
+        trackingNumber      5,
+        question            "Anybody there?"
+    }
+  ```
++ 要通过网络发送上述消息，需要编码成位元字串。ASN.1 定义了不同的算法来完成这项任务，
+  被称为编码规则；
++ 标准的 ASN.1 编码规则有基本编码规则（BER）、规范编码规则（CER）、唯一编码规则（DER）、
+  压缩编码规则（PER）和 XML 编码规则（XER）；
++ DER 是最简单的编码规则。
+## ASN.1 的传输语法格式 TLV
++ 即 type-length-value 或 tag-length-value；
++ type 域和 length 域定长，一般为1-4字节；value 域变长；
++ type 域表示这条语法信息的含义；length 是 value 域的长度，以字节为单位；value 是变
+  长的字节串，用于存储具体的语法信息；
++ BER 和 DER 是基于 TLV 语法传输格式的编码规则；PER 和 XER 是不基于 TLV 语法传输格式
+  的编码规则；
+## BER 编码
++ 每个数据元素被编码为一个类型标识(type)，长度标识(length)和事实上的数据元素(value)，
+  必要时会以一个标记结尾。这种编码方式也称为 TLV 编码；
++ 这种编码格式允许接收者从不完整流中解码出 ASN.1 信息，而不必要求尺寸、内容、数据的语义；
++ 编码结构
+  ```shell
+    +-------------------+-------------------+-------------------+-------------------+
+    | Identifier octets |   Length octets   |  Contents octets  |  End-of-contents  |
+    |      Type         |       Length      |       Value       |      octets       |
+    +-------------------+-------------------+-------------------+-------------------+
+  ```
+  End-of-contents 是可选项，只在无限长度时使用；
+  Contents octets 如果编码内容为空(如 NULL 类型)时可以忽略；
+    + Identifier 八位组编码
+      ```shell
+        +-------------------------------+--------------------------------+------------
+        |             Octet1            |             Octet2             |      Octet3
+        +---+---+---+---+---+---+---+---+----+---+---+---+---+---+---+---+----+---+---+---
+        | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 8  | 7 | 6 | 5 | 4 | 3 | 2 | 1 |  8 | 7 | 6 | 5 | 
+        +---+---+---+---+---+---+---+---+----+---+---+---+---+---+---+---+----+---+---+---+---
+        |  Tag  |   | Tag number(0-30)  |           N/A                  |          N/A
+        | class |P/C+-------------------+----+---------------------------+----+-------------------
+        |       |   |       31          |More|      Tag number           |More|     Tag number
+        +-------+---+-------------------+----+---------------------------+----+-----------------------
+      ```
+      编码说明:
+        + 最开始的八位组，bit 6 对基本类型(Primitive)或构造类型(Constructed)进行记录，
+          bits 7-8 对标签类型(type)进行记录，bits 1-5 对标签值进行记录；      
+        + 数据(尤其是SEQUENCE、SET和CHOICE时)可以使用一个独有的标签(Tag number)进行标
+          识以示区别，标签有隐式(IMPLICIT)和显式(EXPLICIT)两种风格；
+        + P/C 部分
+        
+        |     P/C     | Value |          Description           |
+        |-------------|-------|--------------------------------|
+        | Primitive   | 0     | 八位组直接编码元素值           |
+        | Constructed | 1     | 八位组包含0，1或更多的元素编码 |
+        + 如果 tag number 太大，5位bit无法表示，需要使用更长的octets，这时要用到 Long form。
+          Long form下：
+            + 开始的八位组依旧对 tag class 和 P/C 进行编码，并设置bits 1-5位为1；
+            + tag number 使用紧随的octets（Octet2, Octet3, ...）这样进行编码：每个八位组
+              的bit 8位设置为1，bits 1-7对tag number进行编码；
+            + 将bit合并，大端模式对tag number编码，Octet2的编码位必须不全为0，才能对接下
+              来的Octet3进行编码，以此类推...     -- 不是太理解
+    + 标签种类(Tag class)
+    
+    |       Class       | Value |                     Description                    |
+    |-------------------|-------|----------------------------------------------------|
+    | Universal         | 0     | ASN.1的朴素类型                                    |
+    | Application       | 1     | 只对具体应用有效                                   |
+    | Context-specific  | 2     | 具体意义取决于上下文(例如 sequence, set 或 choice) |
+    | Private           | 3     | 私有指定                                           |
+      常用的类型为 Universal 和 Context-specific ,缺省时为 Context-specific
+    + universal 类型标签的标签值(Tag number)
+      在密码学X.509中用到的标签值(参考mbedtls)
+    |           名称           |     值编码     | Tag值(Hexadecimal) |
+    | END-of-Content(EOC)      | Primitive      | 0                  |
+    | BOOLEAN                  | Primitive      | 1                  |
+    | INTEGER                  | Primitive      | 2                  |
+    | BIT STRING               | Both           | 3                  |
+    | OCTET STRING             | Both           | 4                  |
+    | NULL                     | Primitive      | 5                  |
+    | OBJECT IDENTIFIER        | Primitive      | 6                  |
+    | UTF8String               | Both           | C                  |
+    | SEQUENCE / SEQUENCE OF   | Constructed    | 10                 |
+    | SET / SET OF             | Constructed    | 11                 |
+    | PrintableString          | Both           | 13                 |
+    | T61String                | Both           | 14                 |
+    | IA5String                | Both           | 16                 |
+    | UTCTime                  | Both           | 17                 |
+    | GeneralizedTime          | Both           | 18                 |
+    | UniversalString          | Both           | 1C                 |
+    | CHARACTER STRING         | Both           | 1D                 |
+    | BMPString                | Both           | 1E                 |
+      除了以上，在 mbedtls 的 asn1.h 文件中还定义了几个 tag
+      ```c
+        #define MBEDTLS_ASN1_PRIMITIVE               0x00
+        #define MBEDTLS_ASN1_CONSTRUCTED             0x20
+        #define MBEDTLS_ASN1_CONTEXT_SPECIFIC        0x80
+      ```
+      下面是在密码学中未用到的标签值
+    |           名称           |     值编码     | Tag值(Hexadecimal) |
+    |--------------------------|----------------|--------------------|
+    | Object Descriptor        | Both           | 7                  |
+    | EXTERNAL                 | Constructed    | 8                  |
+    | REAL(float)              | Primitive      | 9                  |
+    | ENUMERATED               | Primitive      | A                  |
+    | EMBEDDED PDV             | Constructed    | B                  |
+    | RELATIVE-OID             | Primitive      | D                  |
+    | NumbericString           | Both           | 12                 |
+    | VideotexString           | Both           | 15                 |
+    | GraphicString            | Both           | 19                 |
+    | VisibleString            | Both           | 1A                 |
+    | GeneralString            | Both           | 1B                 |
+    + 标签风格
+        + 数据(尤其是SEQUENCE、SET和CHOICE时)可以使用一个独有的标签(Tag number)
+          进行标识以示区别，标签有隐式(IMPLICIT)和显式(EXPLICIT)两种风格；
+        + 隐式风格：编码时使用TLV中的value域中的tag，而不是使用基本类型作为标签；
+        + 显式风格：编码时在基本类型的TLV基础上再嵌套一层构造类型的TLV；
+        + 默认标签风格为显式的，除非在模块级(module-level)定义为隐式；
+        + 标签使用 context-specific 作为默认类型，但可以在标签之前对标签类型进行重写；
+    + Length八位组编码
+        + 有两种类型，definite form 和 infinite form；
+        + 第一个 length octet
+          ```shell
+            +---------------—-+-------------------------------+
+            |                 |            Bits               |
+            |      Form       +---+---+---+---+---+---+---+---+
+            |                 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 |
+            +-----------------+---+---+---+---+---+---+---+---+
+            | Definite, short | 0 | Length(0-127)             |     universal
+            +-----------------+---+---------------------------+
+            | Indefinite      | 1 | 0                         |
+            +-----------------+---+---------------------------+
+            | Definite, long  | 1 |紧随其后的八位组数量(1-126)|
+            +-----------------+---+---------------------------+
+            | Reserved        | 1 | 127                       |
+            +-----------------+---+---------------------------+
+          ```
+        + Definite form
+            + 编码八位组数量，如果类型为 primitive 或 constructed，且数据有效有效的情
+              况下会使用；
+            + 有 short form 和 long form 两种，用于解码不同长度范围的数据，数值数据使
+              用最短bit从右开始编码为 unsigned integers；
+            + short form 只包括一个八位组，bit 8为0，bits 1-7 编码数据八位组的长度；
+            + long form ...
+        + Indefinite form
+    + Contents八位组
+        用于编码元素数据值；
+## DER编码
+- DER 编码规则是BER的子集；
+- DER 常用于密码学中，以确定被数字签名的数据结构生成一个唯一的序列表示；
+- 相比于 BER，对 DER 有如下约束：
+    + 长度必须使用 definite form ；-- 有限长度
+    + Bitstring，Octetstring，restricted character strings 必须使用 Primitive 编码；
+    + Set 元素，按照每个元素对应的tag，进行有序编码；
+## DER 和 XER 编码示例
+- ASN.1结构:
+  ```shell
+    FooQuestion ::= SEQUENCE{
+        trackingNumber  INTEGER,
+        question        IA5String
+    }
+  ```
+- PDU:
+  ```shell
+    myQuestion FooQuestion ::= {
+        trackingNumber  5,
+        question        "Anybody there?"
+    }
+  ```
+- 开始编码
+    + DER编码(hexadecimal)
+      ```shell
+        30 -- 标签说明 SEQUENCE
+        13 -- octets长度
+
+        02 -- 标签说明 INTEGER
+        01 -- octets长度
+        05 -- value
+
+        16 -- 标签说明 IA5String
+        0e -- octets长度
+        41 6e 79 62 6f 64 79 20 74 68 65 72 65 3f       -- value    "Anybody there?" in ASCII
+      ```
+      实际上，得到的是 21 个octets:
+      ```shell
+        30 13 02 01 05 16 0e 41 6e 79 62 6f 64 79 20 74 68 65 72 65 3f
+      ```
+    + XER编码
+      ```xml
+        <FooQuestion>
+            <trackingNumber>5</trackingNumber>
+            <question>Anybody there?</question>
+        </FooQuestion>
+      ```
+      包括空格，编码一共得到 108 个octets

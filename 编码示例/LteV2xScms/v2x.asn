@@ -1,0 +1,4288 @@
+LteV2xScms DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+-- ------------------------------------------------------------------
+-- 
+-- Integers
+--
+-- ------------------------------------------------------------------
+
+
+Uint3  ::= INTEGER (0..7)                    -- (hex)                      07
+Uint8  ::= INTEGER (0..255)                  -- (hex)                      ff
+Uint16 ::= INTEGER (0..65535)                -- (hex)                   ff ff
+Uint32 ::= INTEGER (0..4294967295)--<LONGLONG>-- -- (hex)             ff ff ff ff
+Uint64 ::= INTEGER (0..18446744073709551615) -- (hex) ff ff ff ff ff ff ff ff
+
+SequenceOfUint8  ::= SEQUENCE OF Uint8
+SequenceOfUint16 ::= SEQUENCE OF Uint16
+
+-- ------------------------------------------------------------------
+-- 
+-- OCTET STRING types
+--
+-- ------------------------------------------------------------------
+
+
+Opaque ::= OCTET STRING
+
+  
+HashedId10 ::= OCTET STRING (SIZE(10))
+HashedId8  ::= OCTET STRING (SIZE(8))
+HashedId3  ::= OCTET STRING (SIZE(3))
+SequenceOfHashedId3 ::= SEQUENCE OF HashedId3
+
+
+-- ------------------------------------------------------------------
+-- 
+-- Time
+--
+-- ------------------------------------------------------------------
+
+Time32 ::= Uint32
+Time64 ::= Uint64
+
+ValidityPeriod ::= SEQUENCE  {
+    start          Time32,
+    duration       Duration
+}
+
+Duration ::= CHOICE  {
+    microseconds     Uint16,
+    milliseconds     Uint16,
+    seconds          Uint16,
+    minutes          Uint16,
+    hours            Uint16,
+    sixtyHours       Uint16,
+    years            Uint16
+} 
+
+-- ------------------------------------------------------------------
+-- 
+-- Location
+--
+-- ------------------------------------------------------------------
+
+
+GeographicRegion ::= CHOICE  {
+    circularRegion      CircularRegion,
+    rectangularRegion   SequenceOfRectangularRegion,
+    polygonalRegion     PolygonalRegion,
+    identifiedRegion    SequenceOfIdentifiedRegion,
+    ...
+}
+
+CircularRegion ::= SEQUENCE  {
+    center          TwoDLocation,
+    radius          Uint16
+}
+
+RectangularRegion ::= SEQUENCE  {
+    northWest       TwoDLocation,
+    southEast       TwoDLocation
+}
+
+SequenceOfRectangularRegion ::= SEQUENCE OF RectangularRegion
+
+PolygonalRegion ::= SEQUENCE SIZE(3..MAX) OF TwoDLocation
+
+TwoDLocation ::= SEQUENCE  {
+    latitude      Latitude,
+    longitude     Longitude
+}
+
+IdentifiedRegion ::= CHOICE  {
+    countryOnly           CountryOnly,
+    countryAndRegions     CountryAndRegions,
+    countryAndSubregions   CountryAndSubregions,
+    ...
+}
+
+SequenceOfIdentifiedRegion ::= SEQUENCE OF IdentifiedRegion
+
+CountryOnly ::= Uint16
+
+CountryAndRegions ::= SEQUENCE  {
+    countryOnly    CountryOnly,
+    regions        SequenceOfUint8
+}
+
+CountryAndSubregions ::= SEQUENCE  {
+    country             CountryOnly,
+    regionAndSubregions  SequenceOfRegionAndSubregions
+}
+
+RegionAndSubregions ::= SEQUENCE  {
+    region             Uint8,
+    subregions         SequenceOfUint16
+}
+
+SequenceOfRegionAndSubregions ::= SEQUENCE OF RegionAndSubregions
+
+ThreeDLocation ::= SEQUENCE  {
+    latitude        Latitude,
+    longitude       Longitude,
+    elevation       Elevation
+}
+
+Latitude ::= NinetyDegreeInt
+Longitude ::= OneEightyDegreeInt
+Elevation ::= ElevInt
+
+NinetyDegreeInt ::= INTEGER  {
+    min         (-900000000),
+    max         (900000000),
+    unknown     (900000001)
+} (-900000000..900000001)
+
+KnownLatitude ::= NinetyDegreeInt (min..max) -- Minus 90deg to +90deg in microdegree intervals
+UnknownLatitude ::= NinetyDegreeInt (unknown)
+  
+OneEightyDegreeInt ::= INTEGER  {
+    min         (-1799999999),
+    max         (1800000000),
+    unknown     (1800000001)
+} (-1799999999..1800000001)
+
+KnownLongitude ::= OneEightyDegreeInt (min..max)
+UnknownLongitude ::= OneEightyDegreeInt (unknown)
+  
+ElevInt ::= Uint16 -- Range is from -4096 to 61439 in units of one-tenth of a meter
+
+-- ------------------------------------------------------------------
+-- 
+-- Crypto
+--
+-- ------------------------------------------------------------------
+
+Signature ::= CHOICE  {
+    ecdsaNistP256Signature        EcdsaP256Signature,
+    ecdsaBrainpoolP256r1Signature EcdsaP256Signature,
+    ...,
+    ecdsaBrainpoolP384r1Signature EcdsaP384Signature,
+    sm2Signature                  EcsigP256Signature
+}
+
+EcdsaP256Signature ::= SEQUENCE  {
+    rSig     EccP256CurvePoint,
+    sSig     OCTET STRING (SIZE (32))
+}
+
+EcdsaP384Signature ::= SEQUENCE  {
+    rSig     EccP384CurvePoint,
+    sSig     OCTET STRING (SIZE (48))
+}
+
+EccP256CurvePoint ::= CHOICE  {
+    x-only           OCTET STRING (SIZE (32)),
+    fill             NULL,  -- consistency with 1363 / X9.62
+    compressed-y-0   OCTET STRING (SIZE (32)),
+    compressed-y-1   OCTET STRING (SIZE (32)),
+    uncompressedP256 SEQUENCE  {
+        x OCTET STRING (SIZE (32)),
+        y OCTET STRING (SIZE (32))
+    }
+}
+
+EccP384CurvePoint::= CHOICE  {
+    x-only           OCTET STRING (SIZE (48)),
+    fill             NULL, -- consistency w 1363 / X9.62
+    compressed-y-0   OCTET STRING (SIZE (48)),
+    compressed-y-1   OCTET STRING (SIZE (48)),
+    uncompressedP384 SEQUENCE  {
+        x OCTET STRING (SIZE (48)),
+        y OCTET STRING (SIZE (48))
+    }
+}
+
+
+SymmAlgorithm ::= ENUMERATED  { 
+    aes128Ccm,
+    ...,
+    sm4Ccm
+}
+
+HashAlgorithm ::= ENUMERATED  { 
+    sha256,
+    ...,
+    sha384,
+    sm3
+}
+
+EciesP256EncryptedKey ::= SEQUENCE  {
+    v               EccP256CurvePoint,
+    c               OCTET STRING (SIZE (16)),
+    t               OCTET STRING (SIZE (16))
+}
+
+EncryptionKey ::= CHOICE  {
+    public               PublicEncryptionKey,
+    symmetric            SymmetricEncryptionKey 
+}
+
+PublicEncryptionKey ::= SEQUENCE  { 
+    supportedSymmAlg      SymmAlgorithm,
+    publicKey             BasePublicEncryptionKey
+}
+
+BasePublicEncryptionKey ::= CHOICE  { 
+    eciesNistP256             EccP256CurvePoint,
+    eciesBrainpoolP256r1      EccP256CurvePoint,
+    ...,
+    ecencSm2                  EccP256CurvePoint
+}
+
+PublicVerificationKey ::= CHOICE  { 
+    ecdsaNistP256             EccP256CurvePoint,
+    ecdsaBrainpoolP256r1      EccP256CurvePoint,
+    ...,
+    ecdsaBrainpoolP384r1      EccP384CurvePoint,
+    ecsigSm2                  EccP256CurvePoint
+}
+
+SymmetricEncryptionKey ::= CHOICE  {
+    aes128Ccm     OCTET STRING(SIZE(16)),
+    ...,
+    sm4Ccm OCTET STRING(SIZE(16))
+}
+
+EcencP256EncryptedKey ::= SEQUENCE  {
+    v               EccP256CurvePoint,
+    c               OCTET STRING (SIZE (16)),
+    t               OCTET STRING (SIZE (32))
+}
+
+EcsigP256Signature ::= SEQUENCE {
+    r OCTET STRING (SIZE (32)),
+    s OCTET STRING (SIZE (32))
+}
+
+-- ------------------------------------------------------------------
+-- 
+-- PSID / ITS-AID
+--
+-- ------------------------------------------------------------------
+
+
+PsidSsp ::= SEQUENCE  {
+    psid                  Psid,
+    ssp                   ServiceSpecificPermissions OPTIONAL
+}
+
+SequenceOfPsidSsp ::= SEQUENCE OF PsidSsp
+
+Psid ::= INTEGER (0..MAX)
+
+SequenceOfPsid ::= SEQUENCE OF Psid
+
+ServiceSpecificPermissions ::= CHOICE  {
+    opaque              OCTET STRING (SIZE(0..MAX)),
+    ...,
+    bitmapSsp           BitmapSsp
+}
+
+BitmapSsp ::= OCTET STRING (SIZE(0..31))
+
+PsidSspRange ::= SEQUENCE  {
+    psid                Psid,
+    sspRange            SspRange OPTIONAL
+}
+
+SequenceOfPsidSspRange ::= SEQUENCE OF PsidSspRange
+
+SspRange ::= CHOICE  {
+    opaque              SequenceOfOctetString,
+    all                 NULL,
+    ...,
+    bitmapSspRange      BitmapSspRange
+}
+   
+BitmapSspRange ::= SEQUENCE  {
+    sspValue            OCTET STRING (SIZE(1..32)),
+    sspBitmask          OCTET STRING (SIZE(1..32))
+}
+
+SequenceOfOctetString ::= SEQUENCE (SIZE (0..MAX)) OF 
+    OCTET STRING (SIZE(0..MAX))
+
+
+-- ------------------------------------------------------------------
+-- 
+-- Goes in certs
+--
+-- ------------------------------------------------------------------
+
+SubjectAssurance ::= OCTET STRING (SIZE(1))
+
+CrlSeries ::= Uint16
+  
+
+-- ------------------------------------------------------------------
+-- 
+-- Pseudonym Linkage
+--
+-- ------------------------------------------------------------------
+
+IValue ::= Uint16
+Hostname ::= UTF8String (SIZE(0..255))
+LinkageValue ::= OCTET STRING (SIZE(9))
+GroupLinkageValue ::= SEQUENCE  {
+    jValue  OCTET STRING (SIZE(4)),
+    value   OCTET STRING (SIZE(9))
+}
+  
+LaId ::= OCTET STRING (SIZE(2)) 
+LinkageSeed ::= OCTET STRING (SIZE(16))
+
+-- 
+--********************************************************************* 
+-- 
+--  Structures for describing secured data
+-- 
+--*********************************************************************  
+
+-- Necessary to get certain tools to generate sample PDUs
+-- TestIeee1609Dot2Data ::= Ieee1609Dot2Data
+-- TestCertificate ::= Certificate
+
+-- this structure belongs later in the file but putting it here avoids
+-- compiler errors with certain tools
+SignedDataPayload ::= SEQUENCE  { 
+    data              Ieee1609Dot2Data OPTIONAL,
+    extDataHash       HashedData OPTIONAL,
+    ...
+}
+    (WITH COMPONENTS {..., data PRESENT} |
+     WITH COMPONENTS {..., extDataHash PRESENT})
+
+Ieee1609Dot2Data ::= SEQUENCE  {
+    protocolVersion    Uint8(3),
+    content            Ieee1609Dot2Content
+}
+
+Ieee1609Dot2Content ::=  CHOICE  { 
+    unsecuredData            Opaque, 
+    signedData               SignedData,
+    encryptedData            EncryptedData,
+    signedCertificateRequest Opaque,
+    ...
+}
+
+SignedData ::= SEQUENCE  { 
+    hashId          HashAlgorithm,
+    tbsData         ToBeSignedData,
+    signer          SignerIdentifier,
+    signature       Signature
+}
+
+SignerIdentifier ::= CHOICE  { 
+    digest          HashedId8,
+    certificate     SequenceOfCertificate,
+    self            NULL,
+    ...
+}
+
+ToBeSignedData ::= SEQUENCE  { 
+    payload         SignedDataPayload,
+    headerInfo      HeaderInfo
+}
+
+HashedData::= CHOICE  { 
+    sha256HashedData  OCTET STRING (SIZE(32)),
+    ...
+}
+
+HeaderInfo ::= SEQUENCE  {
+    psid                   Psid,
+    generationTime         Time64 OPTIONAL,
+    expiryTime             Time64  OPTIONAL,
+    generationLocation     ThreeDLocation OPTIONAL,
+    p2pcdLearningRequest   HashedId3 OPTIONAL,
+    missingCrlIdentifier   MissingCrlIdentifier OPTIONAL,
+    encryptionKey          EncryptionKey OPTIONAL,
+    ...,
+    inlineP2pcdRequest     SequenceOfHashedId3 OPTIONAL,
+    requestedCertificate   Certificate OPTIONAL,
+    pduFunctionalType      PduFunctionalType OPTIONAL
+}
+
+PduFunctionalType ::= INTEGER (0..255)
+
+
+MissingCrlIdentifier ::= SEQUENCE  {
+    cracaId         HashedId3,
+    crlSeries       CrlSeries,
+    ...
+}
+
+Countersignature ::= Ieee1609Dot2Data (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {..., 
+    signedData  (WITH COMPONENTS {..., 
+      tbsData (WITH COMPONENTS {..., 
+        payload (WITH COMPONENTS {..., 
+          data ABSENT,
+          extDataHash PRESENT
+        }),
+        headerInfo(WITH COMPONENTS {..., 
+          generationTime PRESENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+--********************************************************************** 
+-- 
+--  Structures for describing encrypted data
+-- 
+--**********************************************************************  
+
+
+EncryptedData ::= SEQUENCE  {
+    recipients     SequenceOfRecipientInfo,
+    ciphertext     SymmetricCiphertext
+}
+RecipientInfo ::= CHOICE  {
+    pskRecipInfo        PreSharedKeyRecipientInfo,
+    symmRecipInfo       SymmRecipientInfo,
+    certRecipInfo       PKRecipientInfo, 
+    signedDataRecipInfo PKRecipientInfo, 
+    rekRecipInfo        PKRecipientInfo 
+}
+
+SequenceOfRecipientInfo ::= SEQUENCE OF RecipientInfo
+       
+PreSharedKeyRecipientInfo ::= HashedId8
+SymmRecipientInfo ::= SEQUENCE  { 
+    recipientId        HashedId8, 
+    encKey             SymmetricCiphertext
+}
+
+PKRecipientInfo ::= SEQUENCE  { 
+    recipientId        HashedId8, 
+    encKey             EncryptedDataEncryptionKey
+}
+
+EncryptedDataEncryptionKey ::= CHOICE  { 
+    eciesNistP256          EciesP256EncryptedKey,
+    eciesBrainpoolP256r1   EciesP256EncryptedKey,
+    ...,
+    ecencSm256             EcencP256EncryptedKey
+}
+
+SymmetricCiphertext ::= CHOICE  {
+    aes128ccm           One28BitCcmCiphertext,
+    ...,
+    sm4Ccm              One28BitCcmCiphertext
+}
+
+AesCcmCiphertext ::= SEQUENCE  {
+    nonce           OCTET STRING (SIZE (12)),
+    ccmCiphertext   Opaque -- 16 bytes longer than plaintext
+}
+
+One28BitCcmCiphertext ::= SEQUENCE  {
+    nonce           OCTET STRING (SIZE (12)),
+    ccmCiphertext   Opaque
+} 
+
+--********************************************************************** 
+-- 
+--  Certificates and other security management data structures
+-- 
+--********************************************************************** 
+
+-- Certificates are implicit (type = implicit, toBeSigned includes 
+-- reconstruction value, signature absent) or explicit (type = explicit,
+-- toBeSigned includes verification key, signature present).
+
+Certificate ::= CertificateBase (ImplicitCertificate | ExplicitCertificate)
+
+SequenceOfCertificate ::= SEQUENCE OF Certificate
+
+CertificateBase ::= SEQUENCE  {
+    version                 Uint8(3),
+    type                    CertificateType,
+    issuer                  IssuerIdentifier,
+    toBeSigned              ToBeSignedCertificate,
+    signature               Signature OPTIONAL
+}
+  
+CertificateType  ::= ENUMERATED  {
+    explicit,
+    implicit,
+    ...
+}
+
+ImplicitCertificate ::= CertificateBase (WITH COMPONENTS {...,
+    type(implicit),
+    toBeSigned(WITH COMPONENTS {..., 
+      verifyKeyIndicator(WITH COMPONENTS {reconstructionValue})
+    }), 
+    signature ABSENT
+    })
+
+ExplicitCertificate ::= CertificateBase (WITH COMPONENTS {...,
+    type(explicit),
+    toBeSigned(WITH COMPONENTS {..., 
+        verifyKeyIndicator(WITH COMPONENTS {verificationKey})
+    }), 
+    signature PRESENT
+    })
+
+IssuerIdentifier ::= CHOICE  { 
+    sha256AndDigest         HashedId8,
+    self                    HashAlgorithm,
+    ...,
+    sha384AndDigest         HashedId8,
+    sm3AndDigest            HashedId8
+}
+
+ToBeSignedCertificate ::= SEQUENCE  { 
+    id                     CertificateId,
+    cracaId                HashedId3,
+    crlSeries              CrlSeries,
+    validityPeriod         ValidityPeriod,
+    region                 GeographicRegion OPTIONAL,
+    assuranceLevel         SubjectAssurance OPTIONAL,
+    appPermissions         SequenceOfPsidSsp OPTIONAL,
+    certIssuePermissions   SequenceOfPsidGroupPermissions OPTIONAL,
+    certRequestPermissions SequenceOfPsidGroupPermissions OPTIONAL, 
+    canRequestRollover     NULL OPTIONAL,
+    encryptionKey          PublicEncryptionKey OPTIONAL,
+    verifyKeyIndicator     VerificationKeyIndicator,
+    ...
+}
+(WITH COMPONENTS { ..., appPermissions PRESENT} |
+ WITH COMPONENTS { ..., certIssuePermissions PRESENT} |
+ WITH COMPONENTS { ..., certRequestPermissions PRESENT})
+
+CertificateId ::= CHOICE  {
+    linkageData             LinkageData,
+    name                    Hostname,
+    binaryId                OCTET STRING(SIZE(1..64)),
+    none                    NULL,
+    ...
+}
+
+LinkageData ::= SEQUENCE  {
+    iCert                 IValue,
+    linkage-value         LinkageValue, 
+    group-linkage-value   GroupLinkageValue OPTIONAL
+}
+         
+EndEntityType ::= BIT STRING {app (0), enrol (1) } (SIZE (8)) (ALL EXCEPT {})
+
+PsidGroupPermissions ::= SEQUENCE  {
+    subjectPermissions SubjectPermissions,
+    minChainLength     INTEGER DEFAULT 1,
+    chainLengthRange   INTEGER DEFAULT 0, 
+    eeType             EndEntityType DEFAULT {app}
+}
+
+SequenceOfPsidGroupPermissions ::= SEQUENCE OF PsidGroupPermissions
+
+SubjectPermissions ::= CHOICE  {
+    explicit        SequenceOfPsidSspRange,
+    all             NULL,
+    ...
+}
+
+VerificationKeyIndicator ::= CHOICE  {
+    verificationKey         PublicVerificationKey,
+    reconstructionValue     EccP256CurvePoint,
+    ...
+}
+  
+--
+--
+--  CRL contents
+--
+--
+
+CrlContents ::= SEQUENCE {
+    version            Uint8 (1),
+    crlSeries          CrlSeries,
+    cracaId            HashedId8,
+    issueDate          Time32,   
+    nextCrl            Time32,  
+    priorityInfo       CrlPriorityInfo,
+    typeSpecific       CHOICE {
+        fullHashCrl          ToBeSignedHashIdCrl,            
+        deltaHashCrl         ToBeSignedHashIdCrl,            
+        fullLinkedCrl        ToBeSignedLinkageValueCrl,
+        deltaLinkedCrl       ToBeSignedLinkageValueCrl,
+        ...
+    }
+}    
+
+CrlPriorityInfo ::= SEQUENCE {  
+    priority          Uint8 OPTIONAL,
+    ...
+}
+
+
+ToBeSignedHashIdCrl ::= SEQUENCE {  
+    crlSerial         Uint32,
+    entries           SequenceOfHashBasedRevocationInfo,
+    ...
+}
+
+HashBasedRevocationInfo ::= SEQUENCE {
+    id         HashedId10,
+    expiry     Time32
+}
+
+SequenceOfHashBasedRevocationInfo ::= 
+    SEQUENCE OF HashBasedRevocationInfo
+
+
+ToBeSignedLinkageValueCrl ::= SEQUENCE {  
+    iRev               IValue,
+    indexWithinI       Uint8,
+    individual         SequenceOfJMaxGroup OPTIONAL,
+    groups             SequenceOfGroupCrlEntry OPTIONAL,
+    ...
+} 
+(WITH COMPONENTS {..., individual PRESENT} |
+ WITH COMPONENTS {..., groups PRESENT})
+
+
+JMaxGroup ::= SEQUENCE {
+    jmax              Uint8,
+    contents          SequenceOfLAGroup,
+    ...
+}
+
+
+SequenceOfJMaxGroup ::= SEQUENCE OF JMaxGroup
+
+LAGroup ::= SEQUENCE {
+    la1Id            LaId,
+    la2Id            LaId,
+    contents         SequenceOfIMaxGroup,
+    ...
+}
+
+SequenceOfLAGroup ::= SEQUENCE OF LAGroup
+
+IMaxGroup ::= SEQUENCE {
+    iMax              Uint16,
+    contents          SequenceOfIndividualRevocation,
+    ...
+}
+
+SequenceOfIMaxGroup ::= SEQUENCE OF IMaxGroup
+
+IndividualRevocation ::= SEQUENCE { 
+    linkage-seed1    LinkageSeed,
+    linkage-seed2    LinkageSeed,
+    ...
+}
+
+SequenceOfIndividualRevocation ::= SEQUENCE OF IndividualRevocation
+
+GroupCrlEntry ::= SEQUENCE {
+    iMax             Uint16,
+    la1Id            LaId,
+    linkageSeed1     LinkageSeed,
+    la2Id            LaId,
+    linkageSeed2     LinkageSeed,
+    ...
+}
+
+SequenceOfGroupCrlEntry ::= SEQUENCE OF GroupCrlEntry
+
+CrlPsid ::= Psid(256) -- PSID = 0x100, 0p8080
+
+SecuredCrl ::= Ieee1609Dot2Data (WITH COMPONENTS {..., 
+  content (WITH COMPONENTS {
+    signedData  (WITH COMPONENTS {..., 
+      tbsData (WITH COMPONENTS {
+        payload (WITH COMPONENTS {..., 
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING CrlContents)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {..., 
+          psid (CrlPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+
+  CrlSsp::= SEQUENCE {
+      version         Uint8(1),
+      associatedCraca CracaType,
+      crls            PermissibleCrls,
+      ...
+  }
+
+  CracaType ::= ENUMERATED {isCraca, issuerIsCraca}
+      
+  PermissibleCrls ::= SEQUENCE OF CrlSeries
+
+
+CertificateChainFiles ::= SEQUENCE {
+    globalCertificateChainFile GlobalCertificateChainFile OPTIONAL,
+    localCertificateChainFile LocalCertificateChainFile,
+    ...
+}
+
+----
+--
+-- Global Certificate Chain File:
+--
+-- Contains the full certificate of all SCMS components.
+-- This file is signed by the Policy Generator.
+--
+----
+
+GlobalCertificateChainFile ::= SEQUENCE {
+    version Uint16(0),      -- unique version number for this GCCF
+    certStore CertificateStore, -- list of certificats and all issuers
+    ...
+}
+
+----
+--
+-- Local Certificate Chain File:
+--
+-- Contains a minimum set of full certificates as required by policy and
+-- the selection of the local RA that generated this file.  
+-- This file is signed by the Policy Generator.
+--
+----
+
+LocalCertificateChainFile ::= SEQUENCE {
+    version CompositeVersion,       -- composite version for this file
+    requiredCertStore CertificateStore, -- required list of certificates
+    optionalCertList SEQUENCE SIZE(0..MAX) OF Certificate OPTIONAL, -- optional certs
+    ...
+}
+
+CompositeVersion ::= SEQUENCE {
+    gccfVersion Uint16(0),      -- GCCF version that generatd this file
+    lccfVersion Uint16(0),          -- unique local index for this LCCF
+    raHostname Hostname     -- name of the RA that generated this
+}
+
+
+--
+-- Certificate Store
+--
+-- A certificate store is a list of root and elector endorsements plus lists
+-- of ICA and PCA certificates needed by EEs to validate messages.  This base
+-- type is used to construct the GCCF and the LCCF.
+-- The PG creates the GCCF by assembling all certificates needed to validate
+-- all EE certificates in the SCMS.
+-- An RA creates the LCCF by pruning the GCCF down to the lists needed by
+-- the EEs that are assigned to that RA.  
+-- Note that these are lists of certificates, not certificate chains as
+-- defined in 1609.2.  The primary reason for not using a list of certificate
+-- chains it to eliminate redundancy.  If we used a list of certifiate
+-- chains, each chain would have a copy of the same root CA and some chains
+-- would have copies of the same ICA.
+--
+
+-- *************************************************************************
+--
+--             旧版 CertificateStore 不再使用
+--
+-- *************************************************************************
+
+-- CertificateStore ::= SEQUENCE {
+--    rootCAEndorsements SEQUENCE SIZE(1..MAX) OF ElectorBallot,
+--    electorEndorsements SEQUENCE SIZE(0..MAX) OF ElectorBallot,
+--    maCertificate Certificate,
+--    certs SEQUENCE SIZE(0..MAX) OF Certificate,
+--    ...
+--}
+
+CertificateStore ::= SEQUENCE {
+    rootCACertificate Certificate OPTIONAL,
+    icaCertificate Certificate OPTIONAL,
+    cracaCertificate Certificate OPTIONAL,
+    pgCertificate Certificate OPTIONAL,
+    ecaCertificate Certificate OPTIONAL,
+    pcaCertificate Certificate OPTIONAL,
+    maCertificate Certificate OPTIONAL,
+    raCertificate Certificate OPTIONAL,
+    la1Certificate Certificate OPTIONAL,
+    la2Certificate Certificate OPTIONAL,
+    certs SEQUENCE SIZE(0..MAX) OF Certificate OPTIONAL,
+    ...
+}
+
+ScmsComponentCertificateManagementPDU::= CHOICE {
+    tbsElectorEndorsement TbsElectorEndorsement,
+    ...
+}
+
+----
+-- Elector Ballots
+--
+-- These commands are used to add or remove roots and electors from the SCMS.
+-- An "endorsement" is a structure with a command type (add/remove for root
+-- or elector) along with the certificate to be added or removed.
+-- A signed endorsement is a copy of that whole structure with a signature.
+-- A "ballot" is a list of signed endorsements.
+-- To be valid, a ballot must contain signatures from a quorum of electors.
+----
+
+TbsElectorEndorsement ::= SEQUENCE {
+    type EndorsementType,       -- defines the action to be taken
+    certificate ExplicitCertificate,    -- certificate to be added/removed
+    effectiveTime Time64 OPTIONAL   -- effective time for this message
+}
+
+EndorsementType ::= ENUMERATED {
+    addRoot (0),    -- add a root CA
+    addElector (1), -- add an elector
+    removeRoot (2), -- remove a root CA
+    removeElector (3),  -- remove an elector
+    ...
+}
+
+ElectorBallot ::= SEQUENCE {
+    -- ballot TbsBallot,
+    -- the signatures are generated by the Electors (i.e. endorsement ballots)
+    -- each signature shall contain a copy of the same TbsElectorEndorsement 
+    endorsements SEQUENCE SIZE(1..MAX) OF SignedElectorEndorsement,
+    ...
+}
+
+
+
+----
+-- Composite CRL
+-- 
+-- A composit CRL contains a list of 1609.2 CRLs, one per CRL series
+-- It may also contain ballots to remove Root CAs and Electors 
+----
+
+CompositeCrl ::= SEQUENCE {
+    securedCrlSeries SEQUENCE SIZE(0..MAX) OF SecuredCrl,
+    revokedRootCAs SEQUENCE SIZE(0..MAX) OF ElectorBallot,
+    revokedElectors SEQUENCE SIZE(0..MAX) OF ElectorBallot,
+    ...
+}
+
+ComponentCertificateManagementError ::= ENUMERATED {
+  baseline(1),
+  ...
+}
+
+
+EcaEndEntityInterfacePDU::= CHOICE {
+    eeEcaCertRequest    EeEcaCertRequest,
+    ecaEeCertResponse   EcaEeCertResponse,
+    ...
+}
+
+-- EeEcaCertRequest is signed using the private key generated by the EE and the 
+-- corresponding public key placed in verificationKey is used by the ECA in 
+-- generating the enrollment certificate. All the fields of ToBeSignedCertificate
+-- are filled by the EE/DCM, but the ECA may override them.
+EeEcaCertRequest ::= SEQUENCE {
+    version             Uint8(1),
+    currentTime         Time32,
+    tbsData             ToBeSignedCertificate (WITH COMPONENTS { ..., 
+      id(WITH COMPONENTS {
+        linkageData ABSENT }),
+      region PRESENT,
+      appPermissions ABSENT,
+      certIssuePermissions ABSENT,
+      certRequestPermissions PRESENT,
+      verifyKeyIndicator (WITH COMPONENTS {
+        verificationKey }) }),
+    ...
+}
+
+-- Additional bootstrapping information including the RA's certificate 
+-- are provided by the DCM in a zipped file.
+EcaEeCertResponse ::= SEQUENCE {
+    version                         Uint8(1),
+    requestHash                     HashedId8,  -- hash of original request
+    ecaCert                         Certificate  OPTIONAL,
+    enrollmentCert                  Certificate,
+    privKeyReconstruction         EccP256PrivateKeyReconstruction OPTIONAL,
+    ...
+}
+
+
+EcaEndEntityError ::= ENUMERATED {
+  ecaInvalidCurrentTime, -- currentTime out of range
+  ecaInvalidRequestedStartTime, -- requestedStartTime out of range
+  ecaInvalidPsid, -- passed PSID is invalid for the enrollment
+  ecaInvalidValidityPeriod, --ValidityPeriod out of range
+  ecaInvalidRegion, --GeographicRegion out of range
+  ecaInvalidAssuranceLevel, --SubjectAssurance out of range
+  ecaInvalidEncryptionKey, --response encryption key (PublicEncryptionKey) is invalid
+  ecaInvalidVerifyKey, -- enrollment key (SignedPublicKey) is invalid
+  ecaMalformedRequest, -- everything else that can go wrong in the request 
+  ecaInternalServerError, -- ECA failed to process Enrollment
+  ecaResponseTimeout, -- ECA response timeout
+  ...
+}
+
+EndEntityMaInterfacePDU::= CHOICE {
+    misbehaviorReport   MisbehaviorReportContents,
+    ...
+}
+
+MisbehaviorReportContents ::= SEQUENCE {
+    version Uint8(1),
+    misbehavingDeviceInfo Opaque, -- placeholder
+    misbehavingDeviceBSMs OCTET STRING OPTIONAL, -- non-OER encoded ASN.1 messages
+    reporterDeviceBSMs OCTET STRING OPTIONAL, -- non-OER encoded ASN.1 messages
+    sensorInfo Opaque OPTIONAL, -- placeholder: non-V2V related sensor information, if available
+    ...
+}
+
+EndEntityRaInterfacePDU::= CHOICE {
+    eeRaCertRequest                      EeRaCertRequestMsg,
+    raEeCertResponse                     RaEeCertResponseMsg,
+    eeRaPseudonymCertProvisioningRequest EeRaPseudonymCertProvisioningRequest,
+    raEePseudonymCertProvisioningAck     RaEePseudonymCertProvisioningAck,
+    eeRaIdCertProvisioningRequest        EeRaIdCertProvisioningRequest,
+    raEeIdCertProvisioningAck            RaEeIdCertProvisioningAck,
+    eeRaAppCertProvisioningRequest       EeRaAppCertProvisioningRequest,
+    raEeAppCertProvisioningAck           RaEeAppCertProvisioningAck,
+    eeRaAuthenticatedDownloadRequest     AuthenticatedDownloadRequest,
+    ...
+}
+
+EeRaCertRequestMsg ::= SEQUENCE {
+    version         Uint8(1),
+    ...
+}
+
+RaEeCertResponseMsg ::= SEQUENCE {
+    version         Uint8(1),
+    reply           CHOICE {
+        ack           RaEeCertResponseAck,
+        ...
+    },
+    ...
+}
+
+RaEeCertResponseAck ::= SEQUENCE {
+  raCertificate   Certificate,
+  ...,
+  crl             CompositeCrl OPTIONAL
+}
+CommonProvisioningRequestFields ::= SEQUENCE {
+    current-time                 Time32,
+    requested-start-time         Time32,
+    ...
+}
+
+UnsignedButterflyParams ::= SEQUENCE {
+    seed-key              EccP256CurvePoint,
+    expansion             OCTET STRING (SIZE (16))
+}
+
+
+-- Identification cert:
+--
+-- Identification certificates use Butterfly keys. 
+
+-- These are signed and encrypted before sending, see scms-protocol.asn.
+
+EeRaIdCertProvisioningRequest ::= SEQUENCE {
+    version                      Uint8(1),
+    verify-key-info              UnsignedButterflyParams,
+    cert-enc-key-info            UnsignedButterflyParams OPTIONAL,
+    resp-enc-key-info            UnsignedButterflyParams,
+    common                       CommonProvisioningRequestFields,
+    ...
+}
+
+-- Application cert:
+--
+-- Similar to Identification cert except no use of butterfly keys.
+
+EeRaAppCertProvisioningRequest ::= SEQUENCE {
+    version                 Uint8(1),
+    verify-key              PublicVerificationKey,
+    cert-encryption-key     PublicEncryptionKey OPTIONAL,
+    response-encryption-key PublicEncryptionKey,
+    common                  CommonProvisioningRequestFields,
+    ...
+}
+
+-- Pseudonym cert:
+--
+-- Pseudonym certificates use butterfly keys. Unlike identification certificates, they are shuffled and include linkage values.
+-- This differentiation is visible in other interfaces only, in particular RA-PCA.
+
+EeRaPseudonymCertProvisioningRequest ::= SEQUENCE {
+    version                      Uint8(1),
+    verify-key-info              UnsignedButterflyParams,
+    resp-enc-key-info            UnsignedButterflyParams,
+    common                       CommonProvisioningRequestFields,
+    ...
+}
+
+
+-- enrollment certificate of the end entity, for pseudonym certificate requests
+EndEntityEnrollmentPseudonymCertificate ::= ImplicitCertificate (WITH COMPONENTS {...,
+      toBeSigned(WITH COMPONENTS {...,
+          certRequestPermissions PRESENT
+      })
+  })
+
+-- signed and encrypted before sending, see scms-protocol.asn.
+RaEePseudonymCertProvisioningAck ::= SEQUENCE {
+    version     Uint8(1),
+    -- in case when RA can't calculate hash of the original
+    -- request due to hardError, zero value should be returned
+    requestHash HashedId8,  -- hash of the original request
+    reply       CHOICE {
+        ack        PseudonymCertProvisioningAck,
+        ...
+    },
+    ...
+}
+
+PseudonymCertProvisioningAck ::= SEQUENCE {
+    certDLTime       Time32,
+    certDLURL        Hostname,
+    ...
+}
+
+RaEeIdCertProvisioningAck ::= RaEePseudonymCertProvisioningAck
+
+RaEeAppCertProvisioningAck ::= RaEePseudonymCertProvisioningAck
+
+-- Authenticated Downloads
+
+AuthenticatedDownloadRequest ::= SEQUENCE {
+    timestamp      Time32,
+    filename       UTF8String (SIZE(0..255)),
+    ...
+}
+
+--
+-- All message types for the LA-MA interface PDU
+--
+
+LaMaInterfacePDU::= CHOICE {
+    maLaLinkageInfoRequest  MaLaLinkageInfoRequestMsg,
+    laMaLinkageInfoResponse LaMaLinkageInfoResponseMsg,
+    maLaLinkageSeedRequest  MaLaLinkageSeedRequestMsg,
+    laMaLinkageSeedResponse LaMaLinkageSeedResponseMsg,
+    ...
+}
+
+--
+-- MA requests linkage information from LA
+--
+MaLaLinkageInfoRequestMsg ::= SEQUENCE {
+    version     Uint8(1),
+    tbs         ToBeSignedLIRequestMsg,
+    -- Size 0 is used when MA creates an initial request to be signed by auditors
+    signatures  SEQUENCE (SIZE (0..MAX)) OF Countersignature
+}
+
+
+ToBeSignedLIRequestMsg ::= SEQUENCE {
+    maId                        MaHostnameId,
+    encryptedPLVsAndFlags       SEQUENCE (SIZE(0..MAX)) OF EncryptedPrelinkageValueAndDontCareFlag,
+    encryptedGPLVsAndFlags      SEQUENCE (SIZE(0..MAX)) OF EncryptedGroupPrelinkageValueAndDontCareFlag,
+    expectedReply               ExpectedReply,
+    ...
+}
+
+EncryptedPrelinkageValueAndDontCareFlag ::= SEQUENCE {
+    encryptedPLV  EncryptedIndividualPLV,
+    dontCareFlag  BOOLEAN    
+}
+
+EncryptedGroupPrelinkageValueAndDontCareFlag ::= SEQUENCE {
+    encryptedGroupPLV  EncryptedGroupPLV,
+    dontCareFlag  BOOLEAN    
+}
+
+
+ExpectedReply ::= ENUMERATED {
+    scalarAnswer,
+    indicesLists
+}
+
+--
+-- LA replies with linkage information (Misbehavior Detection)
+--
+LaMaLinkageInfoResponseMsg ::= SEQUENCE {
+    version       Uint8(1),
+    requestHash   HashedId8,  -- hash of the original request
+    laId          LaHostnameId,
+    linkageInfo   CHOICE {
+       success       LinkageInformation,
+       failure       ScopedLaMaLIError
+    }
+}
+
+LinkageInformation ::= CHOICE {
+    scalar SEQUENCE {
+        matches      INTEGER,
+        lowerBound   BOOLEAN  -- lower bound is used or not
+    },
+    --- indices_list should be optional, not yet implemented!
+    indicesList SEQUENCE {
+        unkownPlv    SEQUENCE OF PreLinkageValue,
+        rejectPlv    SEQUENCE OF PreLinkageValue,
+        assocPlv     SEQUENCE OF SEQUENCE OF PreLinkageValue
+    }
+}
+
+--
+-- MA requests linkage seed from LA (Revocation)
+--
+MaLaLinkageSeedRequestMsg ::= SEQUENCE {
+    version       Uint8(1),
+    tbs           ToBeSignedLSRequestMsg,
+    -- Size 0 is used when MA creates an initial request to be signed by auditors
+    signatures    SEQUENCE (SIZE (0..MAX)) OF Countersignature
+}
+
+ToBeSignedLSRequestMsg ::= SEQUENCE {
+    maId          MaHostnameId,
+    lci           SEQUENCE OF LinkageChainId,
+    ...
+}
+
+--
+-- LA replies with linkage seed (Revocation)
+--
+LaMaLinkageSeedResponseMsg ::= SEQUENCE {
+    version     Uint8(1),
+    requestHash HashedId8,
+    laId        LaHostnameId,
+    lsInfo      SEQUENCE OF LCI2LS
+}
+
+LCI2LS ::= SEQUENCE {
+    lci    LinkageChainId,
+    reply  CHOICE {
+        success LinkageSeedAndLaId,
+        failure ScopedLaMaLSError
+    }
+}
+
+LaMaError ::= CHOICE {
+  la-ma-base-error          LaMaBaseErrorCode,
+  la-ma-linkage-info-error  LaMaLinkageInfoErrorCode,
+  la-ma-linkage-seed-error  LaMaLinkageSeedErrorCode,
+  ...
+}
+
+LaMaBaseErrorCode ::= ENUMERATED {
+  laNoMaAuthorizationSignature, 
+  laInvalidMaAuthorizationSignature,
+  numberOfRequestsExceeded, -- not used yet
+  noSecureConnectionToRequestor, -- not used yet
+  laInternalTimeout,
+  maRequestTimeout,
+  laInvalidInputValueFormat, 
+  ...
+}
+
+LaMaLinkageInfoErrorCode ::= ENUMERATED {
+  atLeastOnePrelinkageValueUnknown, -- not used yet
+  allPrelinkageValuesUnknown, -- not used yet
+  onlyOnePrelinkageValuePresented, -- not used yet
+  laInvalidPrelinkageValuePresented,
+  ...
+}
+
+LaMaLinkageSeedErrorCode ::= ENUMERATED {
+  linkageChainIdentifierUnknown, -- not used yet
+  laInvalidLinkageValue,
+  laNumberOfLciValuesExceeded,
+  ...
+}
+
+--
+-- All message types for the LA-PCA interface PDU
+--
+LaPcaInterfacePDU::= CHOICE {
+  pcaLaKeyAgreementRequest    PcaLaKeyAgreementRequestMsg,
+  laPcaKeyAgreementResponse   LaPcaKeyAgreementResponseMsg,
+  pcaLaKeyAgreementAck        PcaLaKeyAgreementAckMsg,
+  ...
+}
+
+--
+-- Initiate key agreement sent by PCA to LA
+--
+PcaLaKeyAgreementRequestMsg ::= SEQUENCE {
+  version        Uint8(1),
+  pcaId          PcaHostnameId,
+  pcaCertificate Certificate OPTIONAL, -- optional, when LA already has PCA's certificate
+  enc-R-pca      EncryptedData (WITH COMPONENTS {
+    recipients (SIZE (1) INTERSECTION (WITH COMPONENT (
+        RecipientInfo (WITH COMPONENTS {
+            certRecipInfo -- using hash of the LA certificate
+    })))),
+    ciphertext -- when decrypted it contains PcaRandomContribution, R_pca
+  }),
+  startDate      Time32,
+  endDate        Time32
+}
+
+PcaRandomContribution ::= OCTET STRING (SIZE(32))
+
+--
+-- Provide response to key agreement request sent by LA to PCA
+--
+LaPcaKeyAgreementResponseMsg ::= SEQUENCE {
+  version       Uint8(1),
+  requestHash   HashedId8,  -- hash of the original request
+  laId          LaHostnameId,
+  enc-R-la      EncryptedData (WITH COMPONENTS {
+    recipients (SIZE (1) INTERSECTION (WITH COMPONENT (
+        RecipientInfo (WITH COMPONENTS {
+            certRecipInfo -- using hash of the PCA certificate
+    })))),
+    ciphertext -- when decrypted it contains LaRandomContribution, R_la
+  }),
+  reply         CHOICE {
+      success FullSizeHash, -- MAC_la computed as HMAC(mac_key, R_pca || R_la || "scms-la")
+                            --  where (enc_key, mac_key) = KDF(R_pca || R_la || "scms-la-pca")
+                            --  enc_key is the negotiated symmetric key to be used by LA for PLV encryption
+      failure ScopedLaPcaError
+  } 
+}
+
+LaRandomContribution ::= OCTET STRING (SIZE(32))
+
+
+--
+-- Key agreement acknowledgement sent by PCA to LA
+--
+PcaLaKeyAgreementAckMsg ::= SEQUENCE {
+  version       Uint8(1),
+  requestHash   HashedId8,  -- hash of the initial request
+  pcaId         PcaHostnameId,
+  reply         CHOICE {
+      success FullSizeHash, -- MAC_pca computed as HMAC(mac_key, R_pca || R_la || "scms-pca")
+                            --  where (enc_key, mac_key) = KDF(R_pca || R_la || "scms-la-pca")
+                            --  enc_key is the negotiated symmetric key to be used by PCA for PLV decryption
+      failure ScopedLaPcaError
+  } 
+}
+
+LaPcaError ::= CHOICE {
+    la-pca  LaPcaErrorCode,
+  ...
+}
+
+LaPcaErrorCode ::= ENUMERATED {
+  invalidSignature,
+  invalidCertificate,
+  invalidStartTime,
+  invalidEndTime,
+  invalidAlgorithm,
+  invalidMacValue,
+  ...
+}
+
+
+-- All message types for the LA-RA interface PDU
+--
+LaRaInterfacePDU::= CHOICE {
+    raLaIndividualPreLinkageValueRequest   RaLaIndividualPreLinkageValueRequestMsg,
+    raLaGroupPreLinkageValueRequest        RaLaGroupPreLinkageValueRequestMsg,
+    laRaPreLinkageValueResponse            LaRaPreLinkageValueResponseMsg,
+    ...
+}
+
+
+--
+-- Request pre-linkage values by RA to LA
+--
+RaLaPreLinkageValueRequestMsgHeader ::= SEQUENCE {
+    version             Uint8(1),
+    raId                RaHostnameId,
+    pcaId               PcaHostnameId,
+    iMin                Uint16,
+    iMax                Uint16
+}
+
+
+RaLaIndividualPreLinkageValueRequestMsg ::= SEQUENCE {
+    header              RaLaPreLinkageValueRequestMsgHeader,
+    jMax                Uint8, 
+    numberOfFreshInd    Uint32 OPTIONAL, -- number of fresh chains for individual certs requested
+    continuationsInd    SEQUENCE OF LinkageChainId OPTIONAL -- continuation values
+                                                            -- for individual certs
+}
+(WITH COMPONENTS {..., numberOfFreshInd PRESENT} |
+ WITH COMPONENTS {..., continuationsInd PRESENT})
+
+
+
+RaLaGroupPreLinkageValueRequestMsg ::= SEQUENCE {
+    header              RaLaPreLinkageValueRequestMsgHeader,
+    jMax                Uint32, 
+    otherLa             LaId,
+    groupIdentifier     OCTET STRING (SIZE(4)) -- the group identifier to be created
+                                               -- or continued
+}
+
+--
+-- Provide pre-linkage values by LA to RA
+--
+LaRaPreLinkageValueResponseMsg ::= SEQUENCE {
+    version       Uint8(1),
+    requestHash   HashedId8,  -- hash of the original request
+    laId          LaHostnameId,
+    reply         CHOICE {
+        success PreLinkageValueRequestResponse,
+        failure ScopedLaRaError
+    }
+}
+
+PreLinkageValueRequestResponse ::= SEQUENCE {
+    iMin                 Uint16,
+    iMax                 Uint16, 
+    individual           SEQUENCE (SIZE (0..MAX)) OF IndividualPlvResponseLinkageChain,
+    group                SEQUENCE (SIZE (0..MAX)) OF GroupPlvResponseLinkageChain,
+    ... 
+}
+
+
+IndividualPlvResponseLinkageChain ::= SEQUENCE {
+    jMax                Uint8, 
+    values              SEQUENCE OF -- outer sequence of size iMax - iMin
+                          SEQUENCE OF EncryptedIndividualPLV, -- inner sequence of size jMax
+    linkageChainId      LinkageChainId
+}
+
+GroupPlvResponseLinkageChain ::= SEQUENCE {
+    jMax                Uint32,
+    otherLa             LaId, 
+    values              SEQUENCE OF -- outer sequence of size iMax - iMin
+                          SEQUENCE OF EncryptedGroupPLV, -- inner sequence of size jMax
+    groupIdentifier OCTET STRING (SIZE(4))
+}
+
+
+LaRaError ::= CHOICE {
+    la-ra   LaRaErrorCode,
+    ...
+}
+
+LaRaErrorCode ::= ENUMERATED {
+  invalidPcaKey,        -- no valid key for encryption to PCA available
+  invalidIMin,          -- iMin is invalid
+  invalidIMax,          -- iMax is invalid
+  invalidContinueChain, -- continue chain is neither 0 nor 1
+  invalidLinkagechainId,-- linkagechainId is invalid
+  invalidJMax,          -- invalid jMax value (e.g. too large)
+  ...
+}
+
+--
+-- All message types for the MA-PCA interface PDU
+--
+MaPcaInterfacePDU ::= CHOICE {
+    maPcaPreLinkageValueRequest   MaPcaPreLinkageValueRequestMsg,
+    pcaMaPreLinkageValueResponse  PcaMaPreLinkageValueResponseMsg,
+    maPcaHPCRRequest              MaPcaHPCRRequestMsg,
+    pcaMaHPCRResponse             PcaMaHPCRResponseMsg,
+    ...
+}
+
+
+--
+-- Request for pre-linkage value sent by MA to PCA (misbehavior detection)
+-- Note that this is actually signed by the MA at the scms-protocol level.
+-- The countersignatures are generated by Auditors.
+--
+
+MaPcaPreLinkageValueRequestMsg ::= SEQUENCE {
+    version         Uint8(1),
+    tbs             ToBeSignedMaPcaPreLinkageValueRequestMsg,
+    -- Size 0 is used when no countersignatures are necessary
+    signatures      SEQUENCE (SIZE (0..MAX)) OF Countersignature
+}
+
+ToBeSignedMaPcaPreLinkageValueRequestMsg ::= SEQUENCE {
+    maId                MaHostnameId,
+    linkageValues       SEQUENCE (SIZE (0..MAX)) OF LinkageValue,
+    groupLinkageValues  SEQUENCE (SIZE (0..MAX)) OF GroupLinkageValue,
+    ...
+}
+
+--
+-- PCA replies to MA with pre-linkage values (misbehavior detection)
+--
+PcaMaPreLinkageValueResponseMsg ::= SEQUENCE {
+    version         Uint8(1),
+    requestHash     HashedId8,  -- hash of the original request
+    pcaId           PcaHostnameId,
+    plvInfo         SEQUENCE OF Lv2Plv
+}
+
+Lv2Plv ::= SEQUENCE {  
+    lv    LinkageValue,
+    reply CHOICE {
+            success  EncryptedPlvAndHostInfo,
+            failure  ScopedMaPcaError
+    }
+}
+
+
+--
+-- Request for hash(pseudonym_certificate_request_by_RA), HPCR, 
+-- sent by MA to PCA (revocation)
+-- Note that this is actually signed by the MA at the scms-protocol level.
+-- The countersignatures are generated by Auditors.
+--
+MaPcaHPCRRequestMsg ::= SEQUENCE {
+    version         Uint8(1),
+    tbs             ToBeSignedMaPcaHPCRRequestMsg,
+    -- Size 0 is used when no countersignatures are necessary
+    signatures      SEQUENCE (SIZE (0..MAX)) OF Countersignature
+}
+
+ToBeSignedMaPcaHPCRRequestMsg ::= SEQUENCE {
+    maId            MaHostnameId,
+    linkage-values  SEQUENCE OF LinkageValue,
+    ...
+--- FIX LATER
+}
+
+
+
+--
+-- PCA replies to MA with hash(pseudonym_certificate_request_by_RA), 
+-- HPCR (revocation)
+--
+PcaMaHPCRResponseMsg ::= SEQUENCE {
+    version         Uint8(1),
+    requestHash     HashedId8,  -- hash of the original request
+    pcaId           PcaHostnameId,
+    hpcrinfo        SEQUENCE OF Lv2HPCR
+}
+
+Lv2HPCR ::= SEQUENCE {  
+    lv        LinkageValue,
+    reply CHOICE {          
+      success  HPCRAndHostInfo,
+      failure  ScopedMaPcaError
+    }
+}
+
+MaPcaError ::= CHOICE {
+    ma-pca  MaPcaErrorCode,
+  ...
+}
+
+MaPcaErrorCode ::= ENUMERATED {
+    pcaInternalTimeout,
+    maRequestTimeout,
+    pcaNoMaAuthorizationSignature,
+    pcaInvalidMaAuthorizationSignature,
+    numberofRequestsExceeded, -- not used yet
+    pcaNumberOfLinkageValuesExceeded,
+    noSecureConnectiontoRequestor, -- not used yet
+    tooManyUsers, -- not used yet
+    linkageValueUnknown, -- not used yet
+    pcaInvalidLinkageValue,
+    pcaInvalidInputValueFormat,
+  ...
+}
+
+--
+-- All message types for the MA-RA interface PDU
+--
+MaRaInterfacePDU ::= CHOICE {
+    maRaBlacklistRequest   MaRaBlacklistRequestMsg,
+    raMaBlacklistResponse  RaMaBlacklistResponseMsg,
+    maRaLCIRequest         MaRaLCIRequestMsg,
+    raMaLCIResponse        RaMaLCIResponseMsg,
+    maRaRseObeIdBlacklistRequest    MaRaRseObeIdBlacklistRequestMsg,
+    raMaRseObeIdBlacklistResponse   RaMaRseObeIdBlacklistResponseMsg,
+    maRaCDVRequest          MaRaCDVRequestMsg,
+    raMaCDVResponse         RaMaCDVResponseMsg,
+    ...
+}
+
+--
+-- Request to blacklist sent by MA to RA
+-- Note that this is actually signed by the MA at the scms-protocol level.
+-- The countersignatures are generated by Auditors.
+--
+MaRaBlacklistRequestMsg ::= SEQUENCE {
+    version    Uint8(1),
+    tbs        ToBeSignedBlacklistingInstructionMsg,
+    -- Size 0 is used when no countersignatures are necessary
+    signatures SEQUENCE SIZE (0..MAX) OF Countersignature
+}
+
+ToBeSignedBlacklistingInstructionMsg ::= SEQUENCE {
+    maId       MaHostnameId,
+    hpcr         SEQUENCE OF HPCR,
+    ...
+}
+
+
+--
+-- Response to blacklist request sent by RA to MA
+--
+RaMaBlacklistResponseMsg ::= SEQUENCE {
+    version          Uint8(1),
+    requestHash      HashedId8,  -- hash of the original request
+    raId             RaHostnameId,
+    status           SEQUENCE OF BlacklistingStatus,
+    ...
+}
+
+BlacklistingStatus ::= SEQUENCE {
+    hpcr      HPCR,
+    reply   CHOICE {
+      success  NULL,
+      failure  ScopedMaRaBlacklistError
+    }
+}
+    
+--
+-- Request for linkage chain identifiers sent by MA to RA
+-- Note that this is actually signed by the MA at the scms-protocol level.
+-- The countersignatures are generated by Auditors.
+--
+MaRaLCIRequestMsg ::= SEQUENCE {
+    version    Uint8(1),
+    tbs        ToBeSignedLCIRequestMsg,
+    -- Size 0 is used when no countersignatures are necessary
+    signatures SEQUENCE SIZE (0..MAX) OF Countersignature
+}
+
+ToBeSignedLCIRequestMsg ::= SEQUENCE {
+    maId       MaHostnameId,
+    hpcr       SEQUENCE OF HPCR,
+    ...
+}
+
+--
+-- Response to request for linkage chain identifiers sent by RA to MA
+--
+RaMaLCIResponseMsg ::= SEQUENCE {
+    version          Uint8(1),
+    requestHash      HashedId8,  -- hash of the original request
+    raId             RaHostnameId,
+    lciInfo          SEQUENCE OF HPCR2LCI,
+    ...
+}
+
+HPCR2LCI ::= SEQUENCE {
+    hpcr        HPCR,
+    reply   CHOICE {
+      success   SEQUENCE {
+        groupIdentifier OCTET STRING (SIZE(4)),
+        info            LCIAndHostInfo
+      },
+      failure   ScopedMaRaLCIError
+    }
+}
+
+--
+-- The following messages use a Revocation Identifer (RIF) instead of the
+-- HPCR to identify what is being revoked.  
+--
+
+-- The RIF data type is defined as an 8-byte arry in scms-base-types.asn
+
+--
+-- Request to blacklist sent by MA to RA
+-- Note that this is actually signed by the MA at the scms-protocol level.
+-- The countersignatures are generated by Auditors.
+--
+MaRaRseObeIdBlacklistRequestMsg ::= SEQUENCE {
+    version    Uint8(1),
+    tbs        ToBeSignedRseObeIdBlacklistingInstructionMsg,
+    -- Size 0 is used when no countersignatures are necessary
+    signatures SEQUENCE SIZE (0..MAX) OF Countersignature
+}
+
+ToBeSignedRseObeIdBlacklistingInstructionMsg ::= SEQUENCE {
+    maId        MaHostnameId,
+    rif         SEQUENCE OF RIF,
+    ...
+}
+
+--
+-- Response to blacklist request sent by RA to MA
+--
+RaMaRseObeIdBlacklistResponseMsg ::= SEQUENCE {
+    version          Uint8(1),
+    requestHash      HashedId8,  -- hash of the original request
+    raId             RaHostnameId,
+    status           SEQUENCE OF RseObeIdBlacklistingStatus,
+    ...
+}
+
+RseObeIdBlacklistingStatus ::= SEQUENCE {
+    rif     RIF,
+    reply   CHOICE {
+      success  NULL,
+      failure  ScopedMaRaBlacklistError
+    }
+}
+
+
+--
+-- MA-to-RA: Request for certificate digest values (CDV) sent by MA to RA
+-- Note that this is actually signed by the MA at the scms-protocol level.
+-- The countersignatures are generated by Auditors.
+--
+MaRaCDVRequestMsg ::= SEQUENCE {
+    version    Uint8(1),
+    tbs        ToBeSignedCDVRequestMsg,
+    -- Size 0 is used when no countersignatures are necessary
+    signatures SEQUENCE SIZE (0..MAX) OF Countersignature
+}
+
+ToBeSignedCDVRequestMsg ::= SEQUENCE {
+    maId       MaHostnameId,
+    rifValues  SEQUENCE OF RIF,
+    ...
+}
+
+
+--
+-- RA-to-MA: replies with list of certificate digest values (CDV)
+--
+
+RaMaCDVResponseMsg ::= SEQUENCE {
+    version         Uint8(1),
+    requestHash     HashedId8,  -- hash of the original request
+    raId            RaHostnameId,
+    cdvInfo         SEQUENCE OF CdvInfo
+}
+
+CdvInfo ::= SEQUENCE {  
+    rif        RIF,
+    reply CHOICE {          
+        -- for each input rif, a list of certificate digests (HashedId8) is returned
+        success  SEQUENCE OF HashedId10,
+        failure  ScopedMaRaBlacklistError
+    }
+}
+
+
+MaRaError ::= CHOICE {
+  ma-ra-base-error          MaRaBaseErrorCode,
+  ma-ra-blacklist-error     MaRaBlacklistErrorCode,
+  ma-ra-lci-error           MaRaLCIErrorCode,
+  ma-ra-cdv-error           MaRaCDVErrorCode,    -- Added for RSE revocation
+  ...
+}
+
+MaRaBaseErrorCode ::= ENUMERATED {
+    raInternalTimeout,
+        maRequestTimeout,
+        raNoMaAuthorizationSignature, 
+    raInvalidMaAuthorizationSignature,
+        raInvalidInputValueFormat,
+        raInvalidHashRequest,
+        raInvalidRIFValue,
+        raInvalidLinkageValue, 
+    raNumberOfRequestsExceeded,
+    noSecureConnectionToRequestor, -- not used yet
+    hpcrIsUnknownToRA, -- not used yet
+    ...
+}
+
+MaRaBlacklistErrorCode ::= ENUMERATED {
+    -- HPCR points to already blacklisted certificate
+    alreadyBlacklisted,
+    -- raCertificateAlreadyBlacklisted,
+    ...
+}
+
+MaRaLCIErrorCode ::= ENUMERATED {
+    noLinkageChainIdentifiersKnownForHPCR, -- not used yet
+    ...
+}
+
+-- Added for RSE application and OBE identification cert revocation
+MaRaCDVErrorCode ::= ENUMERATED {
+    noCertificateDigestValuesKnownForRIF,
+    ...
+}
+    
+--
+-- All message types for the PCA-RA interface PDU
+--
+PcaRaInterfacePDU::= CHOICE {
+  raPcaCertRequest   RaPcaCertRequestMsg,
+  pcaRaCertResponse  PcaRaCertResponseMsg,
+  ...
+}
+
+--
+-- Request certificate message sent by RA to PCA
+--
+RaPcaCertRequestMsg ::= SEQUENCE {
+  version           Uint8(1),
+  raId              RaHostnameId,
+  cert-request-info CHOICE {
+    pseudonym-cert-req     PseudonymCertRequestInfo,
+    auth-cert-req          IdCertRequestInfo,
+    ...
+  }
+}
+
+
+
+
+--
+-- OBE Pseudonym Certificate info sent in the request certificate message
+-- This version is only for implicit certs using butterfly keys. If other
+-- versions of pseudonym cert requests are developed with no butterfly keys
+-- or for explicit certs, that can be handled by defining an additional
+-- CertRequestInfo type within RaPcaCertRequestMsg. In particular, this 
+-- doesn't allow pseudonym certs to have encryption keys, although it would
+-- in principle be possible to support this if the CA added a value to the
+-- encryption key as well as modifying the signing key. It's probably best
+-- for pseudonymous devices that want encrypted responses to do it via a 
+-- response encryption key in the SignedData anyway.
+--
+
+PseudonymCertRequestInfo ::= SEQUENCE {
+
+  --
+  -- these fields go directly into the cert
+  --
+
+  psidSsp                           SequenceOfPsidSsp,
+  performanceAssuranceLevel         SubjectAssurance OPTIONAL,
+  region                            GeographicRegion OPTIONAL,
+  iValue                            IValue,
+
+  --
+  -- used to create material that goes in the cert but not included in the
+  -- cert directly
+  --
+
+  pca-id                 PcaHostnameId,
+  sig-butterfly-key-B    EccP256CurvePoint,
+  la1-id                 LaHostnameId,
+  la2-id                 LaHostnameId,
+  enc-plv1               EncryptedIndividualPLV,
+  enc-plv2               EncryptedIndividualPLV,
+  group-linkage-info     SEQUENCE {
+      gla1-id                LaHostnameId,
+      gla2-id                LaHostnameId,
+      enc-gplv1              EncryptedGroupPLV,
+      enc-gplv2              EncryptedGroupPLV 
+  } OPTIONAL,
+
+  -- used to encrypt the response
+  enc-butterfly-key-H    EccP256CurvePoint
+}
+
+--
+-- Identification Certificate info sent in the request certificate message
+--
+
+IdCertRequestInfo ::= SEQUENCE {
+  pca-id                 PcaHostnameId,
+  type                   CertificateType,
+
+  to-be-signed-cert   ToBeSignedCertificate( 
+    WITH COMPONENTS { ...,  
+      crlSeries(0), -- PCA inserts crlSeries value
+      appPermissions -- Identification certificate request PSID
+    }
+  ),
+
+  response-encryption-key EccP256CurvePoint
+}
+
+
+--
+-- Response to certificate request message sent by PCA to RA
+--
+PcaRaCertResponseMsg ::= SEQUENCE {
+  version     Uint8(1),
+  requestHash HashedId8,  -- hash of the original request
+  pca-id      PcaHostnameId,
+  reply       CHOICE {      
+      success      CHOICE {
+          signed-encrypted  SignedEncryptedCertificateResponse,
+          raw               PlaintextCertificateResponse
+      },
+      failure ScopedPcaRaError
+  },
+  ...
+}
+
+--
+-- Since this looks a little complicated, here's some explanation.
+-- 
+-- SignedEncrypted responses are signed 1609.2 data, containing encrypted 
+-- 1609.2 data, which decrypts to a DecryptedCertificateData containing the
+-- PlaintextCertificateResponse.
+--
+-- We implement this as follows.
+
+-- At the Signed level, we:
+-- * Define ToBeSignedEncryptedCertificateResponse, which is all the fields
+--   relevant to both types of response plus optional i-value
+-- * Define the SignedEncryptedCertificateResponse
+
+-- At the Encrypted level, the EncryptedCertificateData type is a 1609.2 data
+-- containing a single recipient info which is encrypted to a response 
+-- encryption key.
+
+-- The EncryptedCertificateData decrypts to a DecryptedCertificateData, which
+-- is an unsecured 1609.2 data containing a PlaintextCertificateResponse. (It's
+-- a 1609.2 data to maintain the convention that all EncryptedData decrypts to
+-- a 1609.2 data).
+
+-- The PlaintextCertificateResponse distinguishes between: (implicit/explicit)
+-- and (butterfly/single-key) as all four combinations are potentially legal 
+-- and a receiver needs to know which combination applies in order to recover 
+-- the correct private key.
+
+SignedEncryptedCertificateResponse ::= Ieee1609Dot2Data (WITH COMPONENTS {..., 
+  content (WITH COMPONENTS {
+    signedData  (WITH COMPONENTS {..., 
+      tbsData (WITH COMPONENTS {
+        payload (WITH COMPONENTS {..., 
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ToBeSignedEncryptedCertificateResponse)
+            })
+          }) PRESENT,
+          extDataHash ABSENT
+        }),
+        headerInfo (WITH COMPONENTS {..., 
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+
+ToBeSignedEncryptedCertificateResponse ::= SEQUENCE {
+    psidSsp         SequenceOfPsidSsp,
+    expiration      Time32,     
+    lifetime        Duration,   
+    encrypted-cert  EncryptedCertificateData
+}
+
+-- Decrypts to a DecryptedCertificateData
+EncryptedCertificateData ::= Ieee1609Dot2Data (WITH COMPONENTS {
+  content (WITH COMPONENTS {..., 
+    encryptedData (WITH COMPONENTS {
+      ...,
+      recipients (SIZE(1) INTERSECTION (WITH COMPONENT (
+        RecipientInfo (WITH COMPONENTS {rekRecipInfo})
+      )))
+    })
+  })
+})
+
+DecryptedCertificateData ::= Ieee1609Dot2Data (WITH COMPONENTS {
+    content (WITH COMPONENTS {..., 
+      unsecuredData (CONTAINING PlaintextCertificateResponse
+    )
+  })
+})
+
+PlaintextCertificateResponse ::= CHOICE {
+    implicit-butterfly   ImplicitCertResponse,
+    implicit             ImplicitCertResponse,
+    explicit-butterfly   ButterflyExplicitCertResponse,
+    explicit             Certificate
+}
+
+ImplicitCertResponse ::= SEQUENCE {
+    certificate             Certificate (WITH COMPONENTS { ...,
+        type(implicit),
+        issuer(WITH COMPONENTS {sha256AndDigest})
+    }),
+    priv-key-reconstruction-s EccP256PrivateKeyReconstruction
+}
+
+-- Provided certificate and private key reconstruction value 
+ButterflyExplicitCertResponse ::= SEQUENCE {
+    certificate             Certificate (WITH COMPONENTS { ...,
+        type(explicit),
+        issuer(WITH COMPONENTS {sha256AndDigest})
+    }),
+    priv-key-reconstruction-c EccP256PrivateKeyReconstruction
+}
+
+PcaRaError ::= CHOICE {
+    pca-ra-base-error    PcaRaBaseErrorCode,
+    pca-ra-request-error PcaRaRequestErrorCode,
+    ...
+}
+
+PcaRaBaseErrorCode ::= ENUMERATED {
+    -- Unknown error
+    unknownError,
+    ...
+}
+
+PcaRaRequestErrorCode ::= ENUMERATED {
+    -- invalid certificate type requested
+    invalidCertificateRequestType,
+    -- invalid type (neither implicit nor explicit certificate type)
+    invalidType,
+    -- invalid PSID or SSP
+    invalidPsidSsp,
+    -- invalid Region
+    invalidRegion,
+    -- invalid start, end, duration or expiration time
+    invalidValidity,
+    -- an invalid encryption public key is passed
+    invalidEncryptionPublicKey,
+    -- an invalid signing public key is passed
+    invalidSignaturePublicKey,
+    -- invalid encrypted prelinkage value is passed (e.g. cannot be decrypted)
+    invalidEncryptedPreLinkageValue,
+    -- invalid encrypted group prelinkage value is passed (e.g. cannot be decrypted)
+    invalidEncryptedGroupPreLinkageValue,
+    ...
+}
+
+--
+-- All message types for the RA-PG interface PDU
+--
+RaPgInterfacePDU ::= CHOICE {
+    raPgPolicySignatureRequest   RaPgPolicySignatureRequestMsg,
+    raPgPolicySignatureRequestReply  RaPgPolicySignatureRequestReplyMsg,
+    ...
+}
+
+
+ToBeSignedCustomPolicyFile ::= ToBeSignedPolicyData( WITH COMPONENTS {...,
+    policy(WITH COMPONENTS {...,
+        custom PRESENT
+    })
+})
+
+
+SignedCustomPolicyFile ::= BasePolicyFile (WITH COMPONENTS {...,
+    tbsData( WITH COMPONENTS {...,
+        policy(WITH COMPONENTS {...,
+            custom PRESENT
+        })
+    })
+})
+
+
+--
+-- Request to sign modified global parameters inside a local policy file (LPF)
+-- An RA may generate an LPF with a mix of global parameters and local
+-- parameters.  The global portion must be approved and signed by the
+-- PG before it can be distributed to EEs.  
+--
+RaPgPolicySignatureRequestMsg ::= SEQUENCE {
+    version    Uint8(1),
+    tbs        ToBeSignedCustomPolicyFile,
+    ...
+}
+
+
+RaPgPolicySignatureRequestReplyMsg ::= SEQUENCE {
+    version    Uint8(1),
+    signedFile   CHOICE {
+       success       SignedCustomPolicyFile,
+       failure       RaPgError
+    }
+}
+
+
+RaPgError ::= ENUMERATED {
+  raPgMalformedRequest,
+  raPgSignatureFailed,
+  raPgPolicyError,
+  ...
+}
+
+Canada ::= CountryOnly (124)
+Mexico ::= CountryOnly (484)
+USA ::= CountryOnly (840)
+
+CrlgCertExpiration ::= Duration (WITH COMPONENTS {hours(26448)}) -- 3 years + 1 week = 26448 hourss
+DcmCertExpiration ::= Duration (WITH COMPONENTS {hours(26448)}) 
+EcaCertExpirationCvp ::= Duration (WITH COMPONENTS {years(7)})
+EcaCertExpirationPoc ::= Duration (WITH COMPONENTS {years(40)})
+ElectorCertExpiration ::= Duration (WITH COMPONENTS {years(60)})
+IcaCertExpirationCvp ::= Duration (WITH COMPONENTS {years(11)})
+IcaCertExpirationPoc ::= Duration (WITH COMPONENTS {years(50)})
+LaCertExpiration ::= Duration (WITH COMPONENTS {hours(26448)})
+MaCertExpiration ::= Duration (WITH COMPONENTS {hours(26448)})
+PcaCertExpiration ::= Duration (WITH COMPONENTS {years(4)})
+PgCertExpiration ::= Duration (WITH COMPONENTS {hours(26448)})
+ObeEnrollmentCertExpirationCvp ::= Duration (WITH COMPONENTS {years(1..7)})
+ObeEnrollmentCertExpirationPoc ::= Duration (WITH COMPONENTS {years(30)})
+ObeIdentificationCertExpiration ::= Duration (WITH COMPONENTS {hours(721)}) -- 1 month + 1 hour = 721 hours
+ObePseudonymCertExpiration ::= Duration (WITH COMPONENTS {hours(169)}) -- 1 week + 1 hour = 169 hours
+RaCertExpiration ::= Duration (WITH COMPONENTS {hours(26448)})
+RseApplicationCertExpiration ::= Duration (WITH COMPONENTS {hours(169)})
+RseEnrollmentCertExpirationCvp ::= Duration (WITH COMPONENTS {years(1..7)})
+RseEnrollmentCertExpirationPoc ::= Duration (WITH COMPONENTS {years(30)})
+RootCaCertExpiration ::= Duration (WITH COMPONENTS {years(70)})
+
+BsmPsid ::= Psid (32) --PSID = 0x20
+SecurityMgmtPsid ::= Psid (35)  -- PSID = 0x23
+MisbehaviorReportingPsid ::= Psid (38)  -- PSID = 0x26
+VulnerableRoadUsersSafetyPsid ::= Psid (39) -- PSID = 0x27
+DifferentialGpsCorrectionsUncompressedPsid ::= Psid (128) -- PSID = 0x80
+DifferentialGpsCorrectionsCompressedPsid ::= Psid (129) -- PSID = 0x81
+IntersectionSafetyAndAwarenessPsid ::= Psid (130) -- PSID = 0x82
+TravellerInformationAndRoadsideSignagePsid ::= Psid (131) -- PSID = 0x83
+WaveServiceAdvertisementPsid ::= Psid (135) -- PSID = 0x87
+VehicleInitiatedDistressNotificationPsid ::= Psid (16514) -- PSID = 0x4082
+TranscoreSoftwareUpdatePsid ::= Psid (2113667) -- PSID = 0x204083
+CVPApplication1Psid ::= Psid (2113672) -- PSID = 0x204088
+CVPApplication2Psid ::= Psid (2113673) -- PSID = 0x204089
+CVPApplication3Psid ::= Psid (2113674) -- PSID = 0x20408A
+CVPApplication4Psid ::= Psid (2113675) -- PSID = 0x20408B
+CVPApplication5Psid ::= Psid (2113676) -- PSID = 0x20408C
+CVPApplication6Psid ::= Psid (2113677) -- PSID = 0x20408D
+CVPApplication7Psid ::= Psid (2113678) -- PSID = 0x20408E
+CVPApplication8Psid ::= Psid (2113679) -- PSID = 0x20408F
+CVPApplication9Psid ::= Psid (2113680) -- PSID = 0x204090
+CVPApplication10Psid ::= Psid (2113681) -- PSID = 0x204091
+CVPApplication11Psid ::= Psid (2113682) -- PSID = 0x204092
+CVPApplication12Psid ::= Psid (2113683) -- PSID = 0x204093
+CVPApplication13Psid ::= Psid (2113684) -- PSID = 0x204094
+CVPApplication14Psid ::= Psid (2113685) -- PSID = 0x204095
+CVPApplication15Psid ::= Psid (2113686) -- PSID = 0x204096
+CVPApplication16Psid ::= Psid (2113687) -- PSID = 0x204097
+
+
+EeEnrollmentCrlSeries ::= CrlSeries (4)
+EeNonPseudonymCrlSeries ::= CrlSeries (3)
+ObePseudonymCrlSeries ::= CrlSeries (1)
+ScmsComponentCrlSeries ::= CrlSeries (2)
+ScmsSpclComponentCrlSeries ::= CrlSeries (256)
+
+EccP256PrivateKeyReconstruction ::= OCTET STRING(SIZE(32))
+
+EncryptedIndividualPLV ::= SEQUENCE {
+    version         Uint8(1),  -- version of EncryptedPLV
+    laId            LaId,      -- identifies which LA created PLV
+    enc-plv         EncryptedData (WITH COMPONENTS {
+      recipients (SIZE (1) INTERSECTION (WITH COMPONENT (
+        RecipientInfo (WITH COMPONENTS {
+            symmRecipInfo -- Pointer to the used encryption key.
+                          -- The encryption key is identified by the 
+                          -- hash of key agreement (PCA’s initial request) 
+      }))))
+    })
+    -- the ciphertext field in enc-plv decrypts to a ToBeEncryptedIndividualPLV.
+}
+
+EncryptedGroupPLV ::= SEQUENCE {
+    version         Uint8(1),  -- version of EncryptedPLV
+    laId            LaId,      -- identifies which LA created PLV
+    encGroupIndex   OCTET STRING (SIZE(16)), -- when decrypted, this is a ToBeEncryptedGroupIndex
+    enc-group-plv   EncryptedData (WITH COMPONENTS {
+      recipients (SIZE (1) INTERSECTION (WITH COMPONENT (
+        RecipientInfo (WITH COMPONENTS {
+            symmRecipInfo -- Pointer to the used encryption key.
+                          -- The encryption key is identified by the 
+                          -- hash of key agreement (PCA’s initial request) 
+      }))))
+    })
+    -- the ciphertext field in enc-plv decrypts to a ToBeEncryptedGroupPLV.
+}
+
+
+zero8 OCTET STRING ::= '0000000000000000'H
+
+ToBeEncryptedGroupIndex ::= SEQUENCE {
+    padding         OCTET STRING (SIZE(8)) (zero8), -- padding of 64 0-bits
+    groupIdentifier OCTET STRING (SIZE(4)),         -- the 32-bit group identifier
+    j               Uint32
+}
+   
+ToBeEncryptedIndividualPLV ::= SEQUENCE {
+    iValue     IValue,
+    plv        PreLinkageValue
+} 
+
+ToBeEncryptedGroupPLV ::= SEQUENCE {
+   iValue      IValue,
+   j           Uint32,
+   plv         PreLinkageValue
+}
+
+-- Linkage Chain Identifier (LCI)
+LinkageChainId ::= EncryptedData (WITH COMPONENTS {
+    recipients (SIZE (1) INTERSECTION (WITH COMPONENT (
+        RecipientInfo (WITH COMPONENTS {
+            symmRecipInfo
+    })))),
+    ciphertext -- when decrypted it contains LinkageSeed
+  }  
+)
+
+
+PreLinkageValue ::= OCTET STRING (SIZE(9))
+FullSizeHash ::= OCTET STRING (SIZE(32))
+
+-- Review, matching types of all IDs, except for LaId above. YP
+RaHostnameId  ::= Hostname
+PcaHostnameId ::= Hostname
+MaHostnameId  ::= Hostname
+LaHostnameId  ::= Hostname
+
+-- originally in ma-protocols.asn
+
+--- Hash of Pseudonym Certificate Request
+HPCR            ::= FullSizeHash
+
+
+LinkageSeedAndLaId ::= SEQUENCE {
+    linkageSeed LinkageSeed,
+    laId            LaId
+}
+
+SignatureAndSignerIdentifier ::= SEQUENCE {
+    signer      SignerIdentifier,
+    signature   Signature
+}
+
+EncryptedPlvAndHostInfo ::= SEQUENCE {
+    encryptedPLV      EncryptedIndividualPLV,
+    hostname          Hostname
+}
+
+EncryptedGroupPlvAndHostInfo ::= SEQUENCE {
+    encryptedGPLV     EncryptedGroupPLV,
+    hostname          Hostname
+}
+
+
+
+HPCRAndHostInfo ::= SEQUENCE {
+    hpcr             HPCR,
+    hostname         Hostname
+}
+
+LCIAndHostInfo ::= SEQUENCE {
+    iMax            OCTET STRING (SIZE (4)),
+    la1-lci         LinkageChainId,
+    la2-lci         LinkageChainId,
+    la1-id          LaHostnameId,
+    la2-id          LaHostnameId
+}
+
+-- Revocation Identifier (RIF)
+-- This is an 8-byte hash of an enrollment certificate
+RIF ::= HashedId8
+
+
+
+ScmsCommonError ::= ENUMERATED {
+  baseline(1),
+  ...
+}
+
+ScmsError ::= CHOICE {
+  common  ScmsCommonError,
+  ccm     ComponentCertificateManagementError,
+  eca-ee  EcaEndEntityError,
+  la-ma   LaMaError,
+  la-pca  LaPcaError,
+  la-ra   LaRaError,
+  ma-pca  MaPcaError,
+  ma-ra   MaRaError,
+  pca-ra  PcaRaError,
+  ...
+}
+
+
+ScopedComponentCertificateManagementError ::= 
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {ccm})
+
+ScopedEcaEndEntityError ::= 
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {eca-ee})
+
+-- This type is not used (see following la-ma errors)
+ScopedLaMaError ::=
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {la-ma})
+-- Linkage information request errors
+ScopedLaMaLIError ::=
+  ScmsError (WITH COMPONENTS {common} | 
+             WITH COMPONENTS {la-ma 
+                (WITH COMPONENTS {la-ma-base-error} |
+                 WITH COMPONENTS {la-ma-linkage-info-error})}
+            )
+-- Linkage seed request errors
+ScopedLaMaLSError ::=
+  ScmsError (WITH COMPONENTS {common} | 
+             WITH COMPONENTS {la-ma 
+                (WITH COMPONENTS {la-ma-base-error} |
+                 WITH COMPONENTS {la-ma-linkage-seed-error})}
+            )
+
+ScopedLaPcaError ::= 
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {la-pca})
+
+ScopedLaRaError ::= 
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {la-ra})
+
+ScopedMaPcaError ::= 
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {ma-pca})
+
+ScopedMaRaError ::= 
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {ma-ra})
+-- Blacklist request errors
+ScopedMaRaBlacklistError ::=
+  ScmsError (WITH COMPONENTS {common} | 
+             WITH COMPONENTS {ma-ra
+                (WITH COMPONENTS {ma-ra-base-error} |
+                 WITH COMPONENTS {ma-ra-blacklist-error})}
+            )
+-- Linkage chain identifier request errors
+ScopedMaRaLCIError ::=
+  ScmsError (WITH COMPONENTS {common} | 
+             WITH COMPONENTS {ma-ra
+                (WITH COMPONENTS {ma-ra-base-error} |
+                 WITH COMPONENTS {ma-ra-lci-error})}
+            )
+
+
+
+ScopedPcaRaError ::= 
+  ScmsError (WITH COMPONENTS {common} | WITH COMPONENTS {pca-ra})
+
+
+----
+--
+-- Global & Local Policy:
+--
+-- Each resides in its own file and its signed by one or more components
+-- to ensure the policy is valid.
+--
+----
+
+PolicyFiles ::= CHOICE {
+    globalPolicyFile GlobalPolicyFile,
+    localPolicyFile LocalPolicyFile,
+    ...
+}
+
+BasePolicyFile ::= SEQUENCE {
+    version Uint8(1),
+    tbsData ToBeSignedPolicyData,
+    -- countersignatures generated by auditors of the policy file
+    signatures SEQUENCE SIZE(1..MAX) OF Countersignature,
+    ...
+}
+
+ToBeSignedPolicyData ::= SEQUENCE {
+    policyID OCTET STRING (SIZE (0..32)),
+    generationTime Time64,
+    activeTime Time64,
+    policy Policy,
+    ...
+}
+
+GlobalPolicyFile ::= BasePolicyFile (WITH COMPONENTS {...,
+    tbsData( WITH COMPONENTS {...,
+        policy(WITH COMPONENTS {...,
+            global PRESENT
+        })
+    })
+})
+
+
+LocalPolicyFile ::= SEQUENCE {
+    globalParameters BasePolicyFile (WITH COMPONENTS {...,
+        tbsData( WITH COMPONENTS {...,
+            policy( WITH COMPONENTS {...,
+                custom PRESENT
+            })
+        })
+    }),
+
+    localParamters BasePolicyFile (WITH COMPONENTS {...,
+        tbsData( WITH COMPONENTS {...,
+            policy( WITH COMPONENTS {...,
+                local PRESENT
+            })
+        })
+    })
+}
+
+
+Policy ::= CHOICE {
+    global  GlobalPolicyData,
+    custom  CustomPolicyData,
+    local   LocalPolicyData,
+    ...
+}
+
+
+GlobalPolicyData ::= SEQUENCE {
+    -- SCMS Version
+    temporalSeriesOfScmsVersion SEQUENCE {
+        initialScmsVersion ScmsVersion DEFAULT 1,
+        -- SCMS Version, default value is 1
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            scmsVersion ScmsVersion
+        }
+    } OPTIONAL,
+
+    -- GCCF file ID
+    temporalSeriesOfCertChainFileID SEQUENCE {
+        initialGlobalCertChainFileID GlobalCertChainFileID,
+        -- File ID number of the current GCCF
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            globalCertChainFileID GlobalCertChainFileID
+        }
+    } OPTIONAL,
+
+    -- Overdure CRL Tolerance
+    temporalSeriesOfOverdueCrlTolerance SEQUENCE {
+        initialOverdueCrlTolerance OverdueCrlTolerance,
+        -- max time to operate without a new CRL, specified in weeks (4 bytes)
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            overdueCrlTolerance OverdueCrlTolerance
+        }
+    } OPTIONAL,
+
+    -- i-period 
+    temporalSeriesOfIPeriod SEQUENCE {
+        initialIPeriod IPeriod,
+        -- i-value / i-period; default: 1 week
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            iPeriod IPeriod
+        }
+    } OPTIONAL,
+
+    -- Min certs per i-period
+    temporalSeriesOfMinCertsPerIPeriod SEQUENCE {
+        initialMinCertsPerIPeriod MinCertsPerIPeriod DEFAULT 20,
+        -- minimum certs per i-period; default: 20
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            minCertsPerIPeriod MinCertsPerIPeriod
+        }
+    } OPTIONAL,
+
+    -- Cert Validity Model
+    temporalSeriesOfCertValidityModel SEQUENCE {
+        initialCertValidityModel CertValidityModel,
+         -- pseudonym cert validity model - "concurrent" or "non-concurrent"
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            certValidityModel CertValidityModel
+        }
+    } OPTIONAL,
+
+    -- Max available cert supply
+    temporalSeriesOfMaxAvailableCertSupply SEQUENCE {
+        initialMaxAvailableCertSupply MaxAvailableCertSupply,
+        -- max time covered by a certificate batch in years, default: 3 years
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            maxAvailableCertSupply MaxAvailableCertSupply
+        }
+    } OPTIONAL,
+
+    -- Max cert request age
+    temporalSeriesOfMaxCertRequestAge SEQUENCE {
+        initialMaxCertRequestAge MaxCertRequestAge,
+        -- maximum time for individual cert request; to remain in aggregator;
+        -- default: 2 days
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            maxCertRequestAge MaxCertRequestAge
+        }
+    } OPTIONAL,
+
+    -- Shuffle threshold
+    temporalSeriesOfShuffleThreshold SEQUENCE {
+        initialShuffleThreshold ShuffleThreshold DEFAULT 1000,
+        -- minimum # of individual cert requests before shuffle/send to PCA
+    -- default: 1000
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            shuffleThreshold ShuffleThreshold
+        }
+    } OPTIONAL,
+
+    -- Hash of request size
+    temporalSeriesOfHashOfRequestSize SEQUENCE {
+        initialHashOfRequestSize HashOfRequestSize DEFAULT 32,
+        -- bytes in "hash of request" between PCA and RA for inividual
+    -- cert requests; default: 32
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            hashOfRequestSize HashOfRequestSize
+        }
+    } OPTIONAL,
+
+    -- Max GPF GCCF retrieval interval
+    temporalSeriesOfMaxGpfGccfRetrievalInterval SEQUENCE {
+        initialMaxGpfGccfRetrievalInterval MaxGpfGccfRetrievalInterval,
+        -- maximum interval (in hours) before retreiving new GPF or GCCF
+    -- default: 1 hour
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+        startTime Time64,
+        maxGpfGccfRetrievalInterval MaxGpfGccfRetrievalInterval
+        }
+    } OPTIONAL,
+
+    -- RSE application cert validity 
+    temporalSeriesOfRseApplicationCertValidity SEQUENCE {
+        initialRseApplicationCertValidity RseApplicationCertValidity,
+    -- validity time for an RSE cert (in hours)
+    -- Default value is 1 week + 1 hour = 168 hours
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            rseApplicationCertValidity RseApplicationCertValidity
+        }
+    } OPTIONAL,
+
+    -- RSE application cert overlap
+    temporalSeriesOfRseApplicationCertOVerlap SEQUENCE {
+    initialRseApplicationCertOverlap RseApplicationCertOverlap,
+        -- Default value is 1 hour
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            rseApplicationCertOverlap RseApplicationCertOverlap
+    }
+    } OPTIONAL, 
+
+    ...
+}
+
+
+ScmsVersion ::= Uint8                   
+GlobalCertChainFileID ::= Uint16
+OverdueCrlTolerance ::= Duration        
+IPeriod ::= Duration                    
+MinCertsPerIPeriod ::= Uint8            
+CertValidityModel ::= ENUMERATED {
+    concurrent      (1),
+    non-concurrent  (2),
+    ...
+}
+MaxAvailableCertSupply ::= Duration
+MaxCertRequestAge ::= Duration          
+ShuffleThreshold ::= Uint32             
+HashOfRequestSize ::= Uint8            
+MaxGpfGccfRetrievalInterval ::= Duration
+RseApplicationCertValidity ::= Duration
+RseApplicationCertOverlap ::= Duration
+
+
+-- CustomPolicyData
+--
+-- This type is used by an RA that wasnts to creat a custom version of the
+-- GlobalPolicyData.  This structure adds an element with the RA's ID to
+-- differentiate it from a conventional GlobalPolicyFile.  
+-- 
+CustomPolicyData ::= SEQUENCE {
+    requestingRaHostname RaHostnameId OPTIONAL,
+    -- Hostname of the RA that customized this policy data
+    globalPolicy GlobalPolicyData,
+    ...
+}
+
+
+LocalPolicyData ::= SEQUENCE {
+    temporalSeriesOfShuffleThreshold SEQUENCE {
+        initialShuffleThreshold ShuffleThreshold,           -- minimum # of individual cert requests before shuffle/send to PCA
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            shuffleThreshold ShuffleThreshold
+        }
+    } OPTIONAL,
+    temporalSeriesOfCertsPerIPeriod SEQUENCE {
+        initialCertsPerIPeriod CertsPerIPeriod DEFAULT 20,  -- certs per i-period (overrides global value); default: 20
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            certsPerIPeriod CertsPerIPeriod
+        }
+    } OPTIONAL,
+    temporalSeriesOfLaOneHost SEQUENCE {
+        initialLaOneHost LaHostnameId,
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            laOneHost LaHostnameId
+        }
+    } OPTIONAL,
+    temporalSeriesOfLaTwoHost SEQUENCE {
+        initialLaTwoHost LaHostnameId,
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            laTwoHost LaHostnameId
+        }
+    } OPTIONAL,
+    temporalSeriesOfPcaHost SEQUENCE {
+        initialPcaHost PcaHostnameId,
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            pcaHost PcaHostnameId
+        }
+    } OPTIONAL,
+    temporalSeriesOfRaX509TlsCert SEQUENCE {
+        initialRaX509TlsCert X509TlsCert,
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            raX509TlsCert X509TlsCert
+        }
+    } OPTIONAL,
+    temporalSeriesOfLaX509TlsCert SEQUENCE {
+        initialLaX509TlsCert X509TlsCert,
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            laX509TlsCert X509TlsCert
+        }
+    } OPTIONAL,
+    temporalSeriesOfPcaX509TlsCert SEQUENCE {
+        initialPcaX509TlsCert X509TlsCert,
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            pcaX509TlsCert X509TlsCert
+        }
+    } OPTIONAL, 
+    temporalSeriesOfSharedKeyUpdateInterval SEQUENCE {
+        initialSharedKeyUpdateInterval SharedKeyUpdateInterval,     -- maximum time between changes to pre-linkage value enc/dec key
+        intervals SEQUENCE SIZE(0..MAX) OF SEQUENCE {
+            startTime Time64,
+            sharedKeyUpdateInterval SharedKeyUpdateInterval
+        }
+    } OPTIONAL,
+    ...
+}
+
+CertsPerIPeriod ::= Uint8                
+X509TlsCert ::= Opaque
+SharedKeyUpdateInterval ::= Duration    
+
+ScmsPDU ::= SEQUENCE {
+  version  Uint8(1),
+  content  CHOICE {
+      eca-ee    EcaEndEntityInterfacePDU,
+      ee-ra     EndEntityRaInterfacePDU,
+      ee-ma     EndEntityMaInterfacePDU,
+      ccm       ScmsComponentCertificateManagementPDU,
+      la-ma     LaMaInterfacePDU,
+      la-pca    LaPcaInterfacePDU,
+      la-ra     LaRaInterfacePDU,
+      ma-pca    MaPcaInterfacePDU,
+      ma-ra     MaRaInterfacePDU,
+      pca-ra    PcaRaInterfacePDU,
+      ra-pg     RaPgInterfacePDU,
+      ...
+  }
+}
+
+ScmsFile ::= SEQUENCE {
+  version Uint8(1),
+  content CHOICE {
+    cert-chain CertificateChainFiles,
+    policy PolicyFiles,
+    ...
+  }
+}
+
+-- *************************************************************************
+--
+--             Scoped
+--
+-- *************************************************************************
+
+-- *** EE-CA ***************************************************************
+ScopedEeEnrollmentCertRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      eca-ee (WITH COMPONENTS {
+        eeEcaCertRequest
+      })
+    })
+ })
+
+ScopedEeEnrollmentCertResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      eca-ee (WITH COMPONENTS {
+        ecaEeCertResponse
+      })
+    })
+ })
+
+-- *** EE-MA ***************************************************************
+
+ScopedMisbehaviorReport ::=
+  ScmsPDU (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ma (WITH COMPONENTS {
+        misbehaviorReport
+      })
+    })
+ })
+
+-- *** EE-RA ***************************************************************
+
+ScopedEeRaCertRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        eeRaCertRequest
+      })
+    })
+ })
+
+ScopedRaEeCertResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        raEeCertResponse
+      })
+    })
+ })
+
+ScopedPseudonymCertProvisioningRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        eeRaPseudonymCertProvisioningRequest
+      })
+    })
+  })
+
+ScopedPseudonymCertProvisioningAck ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        raEePseudonymCertProvisioningAck
+      })
+    })
+  })
+
+ScopedIdCertProvisioningRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        eeRaIdCertProvisioningRequest
+      })
+    })
+  })
+
+ScopedIdCertProvisioningAck ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        raEeIdCertProvisioningAck
+      })
+    })
+  })
+
+ScopedAppCertProvisioningRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        eeRaAppCertProvisioningRequest
+      })
+    })
+  })
+
+ScopedAppCertProvisioningAck ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        raEeAppCertProvisioningAck
+      })
+    })
+  })
+
+ScopedGlobalCertificateChainFile ::=
+  ScmsFile (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      cert-chain( WITH COMPONENTS {
+        globalCertificateChainFile
+       })
+    })
+  })
+
+ScopedLocalCertificateChainFile ::=
+  ScmsFile (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      cert-chain( WITH COMPONENTS {
+        localCertificateChainFile
+      })
+    })
+  })
+
+ScopedGlobalPolicyFile ::=
+  ScmsFile (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      policy( WITH COMPONENTS {
+        globalPolicyFile
+      })
+    })
+  })
+
+ScopedLocalPolicyFile ::=
+  ScmsFile (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      policy( WITH COMPONENTS {
+        localPolicyFile
+      })
+    })
+  })
+
+ScopedAuthenticatedDownloadRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ee-ra (WITH COMPONENTS {
+        eeRaAuthenticatedDownloadRequest
+      })
+    })
+  })
+
+-- *** LA-MA ***************************************************************
+
+ScopedLIRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-ma (WITH COMPONENTS {
+        maLaLinkageInfoRequest
+      })
+    })
+  })
+
+
+ScopedLIReply ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-ma (WITH COMPONENTS {
+        laMaLinkageInfoResponse
+      })
+    })
+  })
+
+ScopedLSRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-ma (WITH COMPONENTS {
+        maLaLinkageSeedRequest
+      })
+    })
+  })
+
+ScopedLSReply ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-ma (WITH COMPONENTS {
+        laMaLinkageSeedResponse
+      })
+    })
+  })
+
+
+-- *** LA-PCA **************************************************************
+
+ScopedPcaLaKeyAgreementRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-pca (WITH COMPONENTS {
+        pcaLaKeyAgreementRequest
+      })
+    })
+  })
+
+ScopedLaPcaKeyAgreementResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-pca (WITH COMPONENTS {
+        laPcaKeyAgreementResponse
+      })
+    })
+  })
+
+ScopedPcaLaKeyAgreementAck ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-pca (WITH COMPONENTS {
+        pcaLaKeyAgreementAck
+      })
+    })
+  })
+
+-- *** LA-RA ***************************************************************
+
+ScopedRaLaIndividualPreLinkageValueRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-ra (WITH COMPONENTS {
+        raLaIndividualPreLinkageValueRequest
+      })
+    })
+  })
+
+ScopedRaLaGroupPreLinkageValueRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-ra (WITH COMPONENTS {
+        raLaGroupPreLinkageValueRequest
+      })
+    })
+  })
+
+
+ScopedLaRaPreLinkageValueResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      la-ra (WITH COMPONENTS {
+        laRaPreLinkageValueResponse
+      })
+    })
+  })
+
+-- *** MA-PCA **************************************************************
+
+
+ScopedMaPcaPreLinkageValueRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-pca (WITH COMPONENTS {
+        maPcaPreLinkageValueRequest
+      })
+    })
+  })
+
+
+ScopedPcaMaPreLinkageValueResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-pca (WITH COMPONENTS {
+        pcaMaPreLinkageValueResponse
+      })
+    })
+  })
+
+
+ScopedMaPcaHPCRRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-pca (WITH COMPONENTS {
+        maPcaHPCRRequest
+      })
+    })
+  })
+
+
+ScopedPcaMaHPCRResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-pca (WITH COMPONENTS {
+        pcaMaHPCRResponse
+      })
+    })
+  })
+
+-- *** MA-RA **************************************************************
+
+
+ScopedBlacklistRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-ra (WITH COMPONENTS {
+        maRaBlacklistRequest
+      })
+    })
+  })
+
+ScopedBlacklistResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-ra (WITH COMPONENTS {
+        raMaBlacklistResponse
+      })
+    })
+  })
+
+ScopedLCIRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-ra (WITH COMPONENTS {
+        maRaLCIRequest
+      })
+    })
+  })
+
+
+ScopedLCIResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-ra (WITH COMPONENTS {
+        raMaLCIResponse
+      })
+    })
+  })
+
+  
+ScopedRseObeIdBlacklistRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-ra (WITH COMPONENTS {
+        maRaRseObeIdBlacklistRequest
+      })
+    })
+  })
+
+
+ScopedRseObeIdBlacklistResponse ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ma-ra (WITH COMPONENTS {
+        raMaRseObeIdBlacklistResponse
+      })
+    })
+  })
+
+-- *** PCA-RA *************************************************************
+
+ScopedRaPcaCertificateRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      pca-ra (WITH COMPONENTS {
+        raPcaCertRequest
+      })
+    })
+  })
+
+
+ScopedPcaRaCertificateRequestReply ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      pca-ra (WITH COMPONENTS {
+        pcaRaCertResponse
+      })
+    })
+  })
+
+
+-- *** RA-PG *************************************************************
+
+ScopedRaPgPolicySignatureRequest ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ra-pg (WITH COMPONENTS {
+        raPgPolicySignatureRequest
+      })
+    })
+  })
+
+
+ScopedRaPgPolicySignatureRequestReply ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ra-pg (WITH COMPONENTS {
+        raPgPolicySignatureRequestReply
+      })
+    })
+  })
+
+  
+-- *** Scoped certificate requests   **************************************
+
+  ScopedCertificateRequest ::= ScmsPDU (
+     ScopedEeRaCertRequest |
+     ScopedEeEnrollmentCertRequest |
+     ScopedPseudonymCertProvisioningRequest |
+     ScopedIdCertProvisioningRequest  |
+     ScopedAppCertProvisioningRequest  |
+     ScopedRaPcaCertificateRequest |
+     ScopedAuthenticatedDownloadRequest )
+
+
+
+
+--*************************************************************************
+--
+--  Certificate Request
+--
+--**********************************************************************
+
+  SignedCertificateRequest ::= SEQUENCE  {
+    hashId          HashAlgorithm,
+    tbsRequest      ScopedCertificateRequest,
+    signer          SignerIdentifier,
+    signature       Signature
+  }
+
+
+
+-- *************************************************************************
+-- *************************************************************************
+--
+--             Secured
+--
+-- *************************************************************************
+-- *************************************************************************
+
+SecuredScmsPDU ::= Ieee1609Dot2Data
+
+-- *************************************************************************
+--
+--             EE-ECA
+--
+-- *************************************************************************
+
+SignedEeEnrollmentCertRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedCertificateRequest  (CONTAINING
+      SignedCertificateRequest (WITH COMPONENTS {...,
+        tbsRequest (ScopedEeEnrollmentCertRequest),
+        signer (WITH COMPONENTS {
+          self
+        })
+      })
+    )
+  })
+})
+
+SignedEeEnrollmentCertResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedEeEnrollmentCertResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+-- *************************************************************************
+--
+--             EE-MA
+--
+-- *************************************************************************
+
+SecuredMisbehaviorReport ::= SecuredScmsPDU(WITH COMPONENTS {...,
+  content(WITH COMPONENTS {...,
+    encryptedData -- XXX decrypts to a SignedMisbehaviorReport
+  })
+})
+
+SignedMisbehaviorReport ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedMisbehaviorReport)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (MisbehaviorReportingPsid),
+          generationTime PRESENT,
+          expiryTime ABSENT,
+          generationLocation PRESENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      }),
+      signer (WITH COMPONENTS {...,
+        certificate (SequenceOfCertificate (SIZE(1))) -- reporter's pseudonym cert
+      })
+    })
+  })
+})
+
+-- *************************************************************************
+--
+--             EE-RA
+--
+-- *************************************************************************
+
+SecuredRACertRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {...,
+      unsecuredData (CONTAINING ScopedEeRaCertRequest)
+    })
+  })
+
+SecuredRACertResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {...,
+      unsecuredData (CONTAINING ScopedRaEeCertResponse)
+    })
+  })
+
+SignedPseudonymCertProvisioningRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedCertificateRequest  (CONTAINING
+      SignedCertificateRequest (WITH COMPONENTS {...,
+        tbsRequest (ScopedPseudonymCertProvisioningRequest),
+        signer (WITH COMPONENTS {
+          certificate (SequenceOfCertificate (SIZE(1))) -- Enrollment cert
+        })
+      })
+    )
+  })
+})
+
+SecuredPseudonymCertProvisioningRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- XXX decrypts to a SignedPseudonymCertProvisioningRequest or
+  })
+})
+
+SignedPseudonymCertProvisioningAck ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedPseudonymCertProvisioningAck)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredPseudonymCertProvisioningAck ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedPseudonymCertProvisioningAck
+  })
+})
+
+SignedIdCertProvisioningRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedCertificateRequest  (CONTAINING
+      SignedCertificateRequest (WITH COMPONENTS {...,
+        tbsRequest (ScopedIdCertProvisioningRequest),
+        signer (WITH COMPONENTS {
+          certificate (SequenceOfCertificate (SIZE(1))) -- Enrollment cert
+        })
+      })
+    )
+  })
+})
+
+SecuredIdCertProvisioningRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedIdCertProvisioningRequest or XXX
+  })
+})
+
+SignedIdCertProvisioningAck ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedIdCertProvisioningAck)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredIdCertProvisioningAck ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedIdCertProvisioningAck
+  })
+})
+
+SignedAppCertProvisioningRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedCertificateRequest  (CONTAINING
+      SignedCertificateRequest (WITH COMPONENTS {...,
+        tbsRequest (ScopedAppCertProvisioningRequest),
+        signer (WITH COMPONENTS {
+          certificate (SequenceOfCertificate (SIZE(1))) -- Enrollment cert
+        })
+      })
+    )
+  })
+})
+
+SecuredAppCertProvisioningRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedAppCertProvisioningRequest or XXX
+  })
+})
+
+SignedAppCertProvisioningAck ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedAppCertProvisioningAck)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredAppCertProvisioningAck ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedAppCertProvisioningAck
+  })
+})
+
+SignedAuthenticatedDownloadRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedCertificateRequest  (CONTAINING
+      SignedCertificateRequest (WITH COMPONENTS {...,
+        tbsRequest (ScopedAuthenticatedDownloadRequest),
+        signer (WITH COMPONENTS {
+          certificate (SequenceOfCertificate (SIZE(1))) -- Enrollment cert
+        })
+      })
+    )
+  })
+})
+
+SecuredAuthenticatedDownloadRequest  ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedAuthenticatedDownloadRequest
+  })
+})
+
+SignedGlobalPolicyFile ::= Ieee1609Dot2Data( WITH COMPONENTS{...,
+    content( WITH COMPONENTS{...,
+      signedData( WITH COMPONENTS{...,
+        tbsData( WITH COMPONENTS{...,
+          payload( WITH COMPONENTS{...,
+            data( WITH COMPONENTS{...,
+              content( WITH COMPONENTS{...,
+                unsecuredData( CONTAINING ScopedGlobalPolicyFile )
+              })
+            })
+          })
+        })
+      })
+   })
+})
+
+SignedLocalPolicyFile ::= Ieee1609Dot2Data( WITH COMPONENTS{...,
+    content( WITH COMPONENTS{...,
+      signedData( WITH COMPONENTS{...,
+        tbsData( WITH COMPONENTS{...,
+          payload( WITH COMPONENTS{...,
+            data( WITH COMPONENTS{...,
+              content( WITH COMPONENTS{...,
+                unsecuredData( CONTAINING ScopedLocalPolicyFile )
+              })
+            })
+          })
+        })
+      })
+   })
+})
+
+-- *************************************************************************
+--
+--             LA-MA
+--
+-- *************************************************************************
+
+SignedLIRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLIRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredLIRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedLIRequest
+  })
+})
+
+SignedLIReply ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLIReply)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredLIReply ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedLIReply
+  })
+})
+
+SignedLSRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLSRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredLSRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedLSRequest
+  })
+})
+
+SignedLSReply ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLSReply)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredLSReply ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedLSReply
+  })
+})
+
+
+
+-- *************************************************************************
+--
+--             LA-PCA
+--
+-- *************************************************************************
+
+SignedPcaLaKeyAgreementRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedPcaLaKeyAgreementRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SignedLaPcaKeyAgreementResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLaPcaKeyAgreementResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SignedPcaLaKeyAgreementAck ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedPcaLaKeyAgreementAck)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+
+-- *************************************************************************
+--
+--             LA-RA
+--
+-- *************************************************************************
+
+
+-- Generation time present to prevent replay, keep message for replay check until
+-- time corresponding to iMin has been reached.
+SignedRaLaIndividualPreLinkageValueRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedRaLaIndividualPreLinkageValueRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime PRESENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+
+SignedRaLaGroupPreLinkageValueRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedRaLaGroupPreLinkageValueRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime PRESENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+
+SignedLaRaPreLinkageValueResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLaRaPreLinkageValueResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime PRESENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+
+-- *************************************************************************
+--
+--             MA-PCA
+--
+-- *************************************************************************
+
+SignedMaPcaPreLinkageValueRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedMaPcaPreLinkageValueRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredMaPcaPreLinkageValueRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedMaPcaPreLinkageValueRequest
+  })
+})
+
+
+SignedPcaMaPreLinkageValueResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedPcaMaPreLinkageValueResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredPcaMaPreLinkageValueResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedPcaMaPreLinkageValueResponse
+  })
+})
+
+
+SignedMaPcaHPCRRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedMaPcaHPCRRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredMaPcaHPCRRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedMaPcaHPCRRequest
+  })
+})
+
+
+SignedPcaMaHPCRResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedPcaMaHPCRResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredPcaMaHPCRResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedPcaMaHPCRResponse
+  })
+})
+
+
+-- *************************************************************************
+--
+--             MA-RA
+--
+-- *************************************************************************
+
+SignedBlacklistRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedBlacklistRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredBlacklistRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedBlacklistRequest
+  })
+})
+
+
+SignedBlacklistResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedBlacklistResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredBlacklistResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedBlacklistResponse
+  })
+})
+
+
+SignedRseObeIdBlacklistRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedRseObeIdBlacklistRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredRseObeIdBlacklistRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedRseObeIdBlacklistRequest
+  })
+})
+
+
+SignedRseObeIdBlacklistResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedBlacklistResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredRseObeIdBlacklistResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedRseObeIdBlacklistResponse
+  })
+})
+
+
+SignedLCIRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLCIRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredLCIRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedLCIRequest
+  })
+})
+
+
+
+SignedLCIResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLCIResponse)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredLCIResponse ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedLCIResponse
+  })
+})
+
+
+-- *************************************************************************
+--
+--             PCA-RA
+--
+-- *************************************************************************
+
+
+
+SecuredRaPcaCertificateRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedCertificateRequest  (CONTAINING
+      SignedCertificateRequest (WITH COMPONENTS {...,
+        tbsRequest (ScopedRaPcaCertificateRequest),
+        signer (WITH COMPONENTS {
+          certificate (SequenceOfCertificate (SIZE(1)) -- RA 1609.2 cert
+          )
+--          certificate (SequenceOfCertificate (SIZE(1)) (CONSTRAINED BY {
+--              Certificate(EndEntityEnrollmentPseudonymCertificate)
+--          }))
+        })
+      })
+    )
+  })
+})
+
+
+
+SecuredPcaRaCertificateRequestReply ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedPcaRaCertificateRequestReply)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+
+-- *************************************************************************
+--
+--             RA-PG
+--
+-- *************************************************************************
+
+SignedRaPgPolicySignatureRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedRaPgPolicySignatureRequest)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredRaPgPolicySignatureRequest ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedRaPgPolicySignatureRquest
+  })
+})
+
+
+SignedRaPgPolicySignatureRequestReply ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedRaPgPolicySignatureRequestReply)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+SecuredRaPgPolicySignatureRequestReply ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    encryptedData  -- decrypts to a SignedRaPgPolicySignatureRequestReply
+  })
+})
+
+
+-- *************************************************************************
+--
+--             Root Management - Electors
+--
+-- *************************************************************************
+
+ScopedElectorEndorsement ::=
+  ScmsPDU  (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      ccm (WITH COMPONENTS {
+        tbsElectorEndorsement
+      })
+    })
+ })
+
+SignedElectorEndorsement ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+         data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedElectorEndorsement)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime PRESENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+-- *************************************************************************
+--
+--             LCCF
+--
+-- *************************************************************************
+
+SignedLocalCertificateChainFiles ::= SecuredScmsPDU (WITH COMPONENTS {...,
+  content (WITH COMPONENTS {...,
+    signedData  (WITH COMPONENTS {...,
+      tbsData (WITH COMPONENTS {...,
+        payload (WITH COMPONENTS {...,
+          data (WITH COMPONENTS {...,
+             content (WITH COMPONENTS {
+                unsecuredData (CONTAINING ScopedLocalCertificateChainFiles)
+            })
+          })
+        }),
+        headerInfo (WITH COMPONENTS {...,
+          psid (SecurityMgmtPsid),
+          generationTime ABSENT,
+          expiryTime ABSENT,
+          generationLocation ABSENT,
+          p2pcdLearningRequest ABSENT,
+          missingCrlIdentifier ABSENT,
+          encryptionKey ABSENT
+        })
+      })
+    })
+  })
+})
+
+ScopedLocalCertificateChainFiles ::=
+  ScmsFile (WITH COMPONENTS {...,
+    content (WITH COMPONENTS {
+      cert-chain
+    })
+  })
+
+-- *************************************************************************
+--
+--             SSP
+--
+-- *************************************************************************
+
+
+
+ScmsSsp ::= CHOICE {
+  elector ElectorSsp,
+  root RootCaSsp,
+  pg   PGSsp,
+  ica  IcaSsp,
+  eca  EcaSsp,
+  pca  PcaSsp,
+  crl  CrlSignerSsp,
+  dcm  DcmSsp,
+  la   LaSsp,
+  lop  LopSsp,
+  ma   MaSsp,
+  ra   RaSsp,
+  ...
+}
+ElectorSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+RootCaSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+PGSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+IcaSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+EcaSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+PcaSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+CrlSignerSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+DcmSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+LaSsp ::= SEQUENCE {
+  version Uint8(1),
+  laId Uint16,
+  ...
+}
+
+LopSsp ::= SEQUENCE {
+  version Uint8(1),
+  ...
+}
+
+MaSsp ::= SEQUENCE {
+  version        Uint8(1),
+  relevantPsids  SequenceOfPsid,
+  ...
+}
+
+RaSsp ::= SEQUENCE {
+  version  Uint8(1),
+  ...
+}
+
+
+END

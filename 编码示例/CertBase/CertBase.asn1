@@ -1,0 +1,276 @@
+CertBase DEFINITIONS ::=
+BEGIN
+
+ImplicitCertificate ::= CertificateBase (WITH COMPONENTS {
+    ...,
+    type(implicit),
+    toBeSigned(WITH COMPONENTS {
+        ...,
+        verifyKeyIndicator(WITH COMPONENTS {
+            reconstructionValue
+        })
+    }),
+    signature ABSENT
+})
+
+ExplicitCertificate ::= CertificateBase (WITH COMPONENTS {
+    ...,
+    type(explicit),
+    toBeSigned(WITH COMPONENTS {
+        ...,
+        verifyKeyIndicator(WITH COMPONENTS {
+            verificationKey
+        })
+    }),
+    signature PRESENT
+})
+
+EtsiTs103097Certificate::= ExplicitCertificate (WITH COMPONENTS{
+    ...,
+    toBeSigned (WITH COMPONENTS{...,
+        id (WITH COMPONENTS{...,
+        linkageData ABSENT,
+        binaryId ABSENT
+    }),
+    certRequestPermissions ABSENT,
+    canRequestRollover ABSENT
+    })
+})
+
+Certificate ::= CertificateBase (ImplicitCertificate | ExplicitCertificate)
+    CertificateBase ::= SEQUENCE {
+        version Uint8(3),
+        type CertificateType,
+        issuer IssuerIdentifier,
+        toBeSigned ToBeSignedCertificate,
+        signature Signature OPTIONAL
+    }
+        Uint8 ::= INTEGER (0..255)
+        CertificateType ::= ENUMERATED {
+            explicit,
+            implicit,
+            ...
+        }
+        IssuerIdentifier ::= [0] EXPLICIT CHOICE {      -- * + [0] EXPLICIT
+            sha256AndDigest [0]  HashedId8,             -- * + [0]
+            self [1] IMPLICIT HashAlgorithm,            -- * + [1] IMPLICIT
+            ...,
+            sha384AndDigest [2]  HashedId8              -- * + [2]
+        }
+            HashedId8 ::= OCTET STRING (SIZE(8))
+            HashAlgorithm ::= ENUMERATED {
+                sha256,
+                ...,
+                sha384
+            }
+        ToBeSignedCertificate ::= SEQUENCE {
+            id [0] EXPLICIT CertificateId,                          -- * + [0] EXPLICIT
+            cracaId HashedId3,
+            crlSeries CrlSeries,
+            validityPeriod ValidityPeriod,
+            region [1] EXPLICIT GeographicRegion OPTIONAL,          -- * + [1] EXPLICIT
+            assuranceLevel SubjectAssurance OPTIONAL,
+            appPermissions [2] SequenceOfPsidSsp OPTIONAL,          -- * + [2]
+            certIssuePermissions [3] SequenceOfPsidGroupPermissions OPTIONAL,       --  * + [3]
+            certRequestPermissions [4] SequenceOfPsidGroupPermissions OPTIONAL,     --  * + [4]
+            canRequestRollover NULL OPTIONAL,
+            encryptionKey PublicEncryptionKey OPTIONAL,     -- 唯一的 SEQUENCE 
+            verifyKeyIndicator [5] EXPLICIT VerificationKeyIndicator,       -- * + [5]
+            ...
+        } (WITH COMPONENTS { ..., appPermissions PRESENT} |
+        WITH COMPONENTS { ..., certIssuePermissions PRESENT} |
+        WITH COMPONENTS { ..., certRequestPermissions PRESENT})
+            CertificateId ::= CHOICE {
+                linkageData LinkageData,
+                name Hostname,
+                binaryId OCTET STRING(SIZE(1..64)),
+                none NULL,
+                ...
+            }
+                LinkageData ::= SEQUENCE {
+                    iCert IValue,
+                    linkage-value LinkageValue,
+                    group-linkage-value GroupLinkageValue OPTIONAL
+                }
+                    IValue ::= Uint16
+                        Uint16 ::= INTEGER (0..65535)
+                    LinkageValue ::= OCTET STRING (SIZE(9))
+                    GroupLinkageValue ::= SEQUENCE {
+                        jValue OCTET STRING (SIZE(4)),
+                        value OCTET STRING (SIZE(9))
+                    }
+                Hostname ::= UTF8String (SIZE(0..255))
+            HashedId3 ::= OCTET STRING (SIZE(3))
+            CrlSeries ::= Uint16
+            ValidityPeriod ::= SEQUENCE {
+                start Time32,
+                duration [0] EXPLICIT Duration          -- * + [0] EXPLICIT
+            }
+                Time32 ::= Uint32
+                    Uint32 ::= INTEGER (0..4294967295)
+                Duration ::= CHOICE {
+                    microseconds [0] Uint16,        -- * + [0]
+                    milliseconds [1] Uint16,        -- * + [1]
+                    seconds      [2] Uint16,        -- * + [2]
+                    minutes      [3] Uint16,        -- * + [3]
+                    hours        [4] Uint16,        -- * + [4]
+                    sixtyHours   [5] Uint16,        -- * + [5]
+                    years        [6] Uint16         -- * + [6]
+                }
+            GeographicRegion ::= CHOICE {
+                circularRegion        CircularRegion,
+                rectangularRegion [0] SequenceOfRectangularRegion,      -- * + [0]
+                polygonalRegion   [1] PolygonalRegion,                  -- * + [1]
+                identifiedRegion  [2] SequenceOfIdentifiedRegion,       -- * + [2]
+                ...
+            }
+                CircularRegion ::= SEQUENCE {
+                    center TwoDLocation,
+                    radius Uint16
+                }
+                    TwoDLocation ::= SEQUENCE {
+                        latitude Latitude,
+                        longitude Longitude
+                    }
+                        Latitude ::= NinetyDegreeInt
+                            NinetyDegreeInt ::= INTEGER {
+                                min (-900000000),
+                                max (900000000),
+                                unknown (900000001)
+                            } (-900000000..900000001)
+                        Longitude ::= OneEightyDegreeInt
+                            OneEightyDegreeInt ::= INTEGER {
+                                min (-1799999999),
+                                max (1800000000),
+                                unknown (1800000001)
+                            } (-1799999999..1800000001)
+                SequenceOfRectangularRegion ::= SEQUENCE OF RectangularRegion
+                    RectangularRegion ::= SEQUENCE {
+                        northWest TwoDLocation,
+                        southEast TwoDLocation
+                    }
+                PolygonalRegion ::= SEQUENCE SIZE(3..MAX) OF TwoDLocation
+                SequenceOfIdentifiedRegion ::= SEQUENCE OF IdentifiedRegion
+                    IdentifiedRegion ::= [0] EXPLICIT CHOICE {          -- * + [0] EXPLICIT
+                        countryOnly CountryOnly,
+                        countryAndRegions [0] CountryAndRegions,        -- * + [0]
+                        countryAndSubregions [1] CountryAndSubregions,  -- * + [1]
+                        ...
+                    }
+                        CountryOnly ::= Uint16
+                        CountryAndRegions ::= SEQUENCE {
+                            countryOnly CountryOnly,
+                            regions SequenceOfUint8
+                        }
+                            SequenceOfUint8 ::= SEQUENCE OF Uint8
+                        CountryAndSubregions ::= SEQUENCE {
+                            country CountryOnly,
+                            regionAndSubregions SequenceOfRegionAndSubregions
+                        }
+                            SequenceOfRegionAndSubregions ::= SEQUENCE OF RegionAndSubregions
+                            RegionAndSubregions ::= SEQUENCE {
+                                region Uint8,
+                                subregions SequenceOfUint16
+                            }
+                                SequenceOfUint16 ::= SEQUENCE OF Uint16
+            SubjectAssurance ::= OCTET STRING (SIZE(1))
+            SequenceOfPsidSsp ::= SEQUENCE OF PsidSsp
+                PsidSsp ::= SEQUENCE {
+                    psid Psid,
+                    ssp ServiceSpecificPermissions OPTIONAL
+                }
+                    Psid ::= INTEGER (0..MAX)
+                    ServiceSpecificPermissions ::= [0] EXPLICIT CHOICE {    -- * + [0] EXPLICIT
+                        opaque [0] OCTET STRING (SIZE(0..MAX)),             -- * + [0]
+                        ...,
+                        bitmapSsp [1] BitmapSsp                             -- * + [1]
+                    }
+                        BitmapSsp ::= OCTET STRING (SIZE(0..31))    
+            SequenceOfPsidGroupPermissions ::= SEQUENCE OF PsidGroupPermissions
+                PsidGroupPermissions ::= SEQUENCE {
+                    subjectPermissions [0] EXPLICIT SubjectPermissions,     -- * + [0] EXPLICIT
+                    minChainLength [1] INTEGER DEFAULT 1,                   -- * + [1]
+                    chainLengthRange [2] INTEGER DEFAULT 0,                 -- * + [2]
+                    eeType EndEntityType DEFAULT {app}
+                }
+                    SubjectPermissions ::= CHOICE {
+                        explicit SequenceOfPsidSspRange,
+                        all NULL,
+                        ...
+                    }
+                        SequenceOfPsidSspRange ::= SEQUENCE OF PsidSspRange
+                            PsidSspRange ::= SEQUENCE {
+                                psid Psid,
+                                sspRange [0] EXPLICIT SspRange OPTIONAL     -- * + [0] EXPLICIT
+                            }
+                                SspRange ::= CHOICE {
+                                    opaque [0] SequenceOfOctetString,       -- * + [0]
+                                    all NULL,
+                                    ... ,
+                                    bitmapSspRange [1] BitmapSspRange       -- * + [1]
+                                }
+                                    SequenceOfOctetString ::= SEQUENCE (SIZE (0..MAX)) OF OCTET STRING (SIZE  (0..MAX))
+                                    BitmapSspRange ::= SEQUENCE {
+                                        sspValue [0] OCTET STRING (SIZE(1..32)),
+                                        sspBitmask OCTET STRING (SIZE(1..32))
+                                    }
+                        EndEntityType ::= BIT STRING {app (0), enrol (1) } (SIZE (8))   -- * SIZE(8) 是 8 个字节吗?
+            PublicEncryptionKey ::= SEQUENCE {
+                supportedSymmAlg [0] IMPLICIT SymmAlgorithm,        -- * + [0] IMPLICIT     同域内无整型，可有可无
+                publicKey [1] EXPLICIT BasePublicEncryptionKey      -- * + [1] EXPLICIT
+            }
+                SymmAlgorithm ::= ENUMERATED {
+                    aes128Ccm,
+                    ...
+                }
+                BasePublicEncryptionKey ::= CHOICE {
+                    eciesNistP256 [0] EXPLICIT EccP256CurvePoint,           -- * + [0] EXPLICIT
+                    eciesBrainpoolP256r1 [1] EXPLICIT EccP256CurvePoint,    -- * + [1] EXPLICIT
+                    ...
+                }
+                    EccP256CurvePoint ::= CHOICE {
+                        x-only [0] OCTET STRING (SIZE (32)),            -- * + [0]
+                        fill NULL,                                      -- * consistency with 1363 / X9.62
+                        compressed-y-0 [1] OCTET STRING (SIZE (32)),    -- * + [1]
+                        compressed-y-1 [2] OCTET STRING (SIZE (32)),    -- * + [2]
+                        uncompressedP256 SEQUENCE {
+                            x OCTET STRING (SIZE (32)),
+                            y OCTET STRING (SIZE (32))
+                        }
+                    }
+            VerificationKeyIndicator ::= CHOICE {
+                verificationKey [0] EXPLICIT PublicVerificationKey,     -- * + [0] EXPLICIT
+                reconstructionValue [1] EXPLICIT EccP256CurvePoint,     -- * + [1] EXPLICIT
+                ...
+            }
+                PublicVerificationKey ::= CHOICE {
+                    ecdsaNistP256 [0] EXPLICIT EccP256CurvePoint,           -- * + [0] EXPLICIT
+                    ecdsaBrainpoolP256r1 [1] EXPLICIT EccP256CurvePoint,    -- * + [1] EXPLICIT
+                    ...,
+                    ecdsaBrainpoolP384r1 [2] EXPLICIT EccP384CurvePoint     -- * + [2] EXPLICIT
+                }
+                    EccP384CurvePoint::= CHOICE {
+                        x-only [0] OCTET STRING (SIZE (48)),            -- * + [0]
+                        fill NULL,                                      -- consistency w 1363 / X9.62
+                        compressed-y-0 [1] OCTET STRING (SIZE (48)),    -- * + [1]
+                        compressed-y-1 [2] OCTET STRING (SIZE (48)),    -- * + [2]
+                        uncompressedP384 SEQUENCE {
+                            x OCTET STRING (SIZE (48)),
+                            y OCTET STRING (SIZE (48))
+                        }
+                    }
+        Signature ::= [0] EXPLICIT CHOICE {                                     -- * + [0] EXPLICIT
+            ecdsaNistP256Signature [0] EXPLICIT EcdsaP256Signature,             -- * + [0] EXPLICIT
+            ecdsaBrainpoolP256r1Signature [1] EXPLICIT EcdsaP256Signature,      -- * + [1] EXPLICIT
+            ...,
+            ecdsaBrainpoolP384r1Signature [2] EXPLICIT EcdsaP384Signature       -- * + [2] EXPLICIT
+        }
+            EcdsaP256Signature ::= SEQUENCE {
+                rSig EccP256CurvePoint,
+                sSig OCTET STRING (SIZE (32))
+            }
+            EcdsaP384Signature ::= SEQUENCE {
+                rSig EccP384CurvePoint,
+                sSig OCTET STRING (SIZE (48))
+            }
+END

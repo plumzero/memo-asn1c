@@ -1,0 +1,435 @@
+GbCertBase DEFINITIONS ::=
+BEGIN
+
+-- ------------------------------------------------------------------
+--
+-- linux 环境下使用 asn1c 处理 .asn 文件时，无法正常释出 .h 和 .c 文
+-- 件，报 'has the same tag as component' 的 FATAL 错误，是因为在类型
+-- CHOICE 中无法区分具体的选择项所致。这可以通过为 CHOICE 类型的每个成
+-- 员增加标签解决。
+-- 本 asn 文件即增加标签后的版本。
+--
+-- ------------------------------------------------------------------
+
+-- ------------------------------------------------------------------
+--
+-- 基本数据类型
+--
+-- ------------------------------------------------------------------
+
+Uint3 ::= INTEGER(0..7)                      --(hex)                      07
+Uint8 ::= INTEGER(0..255)                    --(hex)                      ff
+Uint16 ::= INTEGER(0..65535)                 --(hex)                   ff ff
+Uint32 ::= INTEGER(0..4294967295)            --(hex)             ff ff ff ff
+Uint64 ::= INTEGER(0..18446744073709551615)  --(hex) ff ff ff ff ff ff ff ff
+
+
+-- ------------------------------------------------------------------
+--
+-- 哈希值
+--
+-- ------------------------------------------------------------------
+
+HashedId8 ::= OCTET STRING (SIZE(8))
+HashedId10 ::= OCTET STRING(SIZE(10))
+
+
+
+-- ------------------------------------------------------------------
+--
+-- 摘要算法
+--
+-- ------------------------------------------------------------------
+
+HashAlgorithm ::= ENUMERATED{
+    sgdsm3,
+    sha256,
+    ...
+}
+
+
+-- ------------------------------------------------------------------
+--
+-- 椭圆曲线算法
+--
+-- 国密算法时，ECCPoint均采用x-only形式
+-- ------------------------------------------------------------------
+
+EccCurve ::= ENUMERATED{
+    sgdsm2,
+    nistP256,
+    brianpoolP256rl,
+    ...
+}
+
+ECCPoint ::= CHOICE{
+    x-only [0] OCTET STRING(SIZE(32)),
+    fill [1] NULL,--consistency w 1363/X9.62
+    compressed-y-0 [2] OCTET STRING(SIZE(32)),
+    compressed-y-1 [3] OCTET STRING(SIZE(32)),
+    uncompressed  [4] SEQUENCE{
+        x [0] OCTET STRING(SIZE(32)),
+        y [1] OCTET STRING(SIZE(32))
+    }
+}
+
+
+-- ------------------------------------------------------------------
+--
+-- 对称加密算法
+--
+-- ------------------------------------------------------------------
+
+SymmetricAlgorithm ::= ENUMERATED{
+    sgdsm4ecb,
+    sgdsm4cbc,
+    sgdsm4cfg,
+    sgdsm4ofb,
+    aes128ccm,
+    ...
+}
+
+
+-- ------------------------------------------------------------------
+--
+-- 签名公钥
+--
+-- ------------------------------------------------------------------
+
+PublicVerifyKey ::= SEQUENCE{
+    curve EccCurve,
+    key ECCPoint,
+    ...
+}
+
+
+-- ------------------------------------------------------------------
+--
+-- 加密公钥
+--
+-- ------------------------------------------------------------------
+
+PublicEncryptionKey ::= SEQUENCE{
+    supportedSymmAlg SymmetricAlgorithm,
+    eccCurve EccCurve,
+    publicKey ECCPoint
+}
+
+
+
+-- ------------------------------------------------------------------
+--
+-- 32位时间
+--
+-- ------------------------------------------------------------------
+
+Time32 ::= Uint32
+
+-- ------------------------------------------------------------------
+--
+-- 地理区域
+--
+-- ------------------------------------------------------------------
+
+GeographicRegion ::= CHOICE{
+    circularRegion [0] CircularRegion,
+    rectangularRegion [1] SequenceOfRectangularRegion,
+    polygonalRegion [2] PolygonalRegion,
+    ...
+}
+
+SequenceOfRectangularRegion ::= SEQUENCE OF RectangularRegion
+
+CircularRegion ::= SEQUENCE{
+    center TwoDLocation,
+    radius Uint16
+}
+
+RectangularRegion ::= SEQUENCE{
+    northWest TwoDLocation,
+    southEast TwoDLocation
+}
+
+PolygonalRegion ::= SEQUENCE SIZE(3..MAX) OF TwoDLocation
+
+TwoDLocation ::= SEQUENCE{
+    latitude Latitude,
+    longitude Longitude
+}
+
+ThreeDLocation ::= SEQUENCE{
+    latitude Latitude,
+    longitude Longitude,
+    elevation Elevation
+}
+
+Elevation ::= Uint16
+
+Latitude ::= NinetyDegreeInt
+
+NinetyDegreeInt ::= INTEGER{
+    min(-900000000),
+    max(900000000),
+    unknown(900000001)
+}(-900000000..900000001)
+
+KnownLatitude ::= NinetyDegreeInt(min..max)
+UnknownLatitude ::= NinetyDegreeInt(unknown)
+
+Longitude ::= OneEightyDegreeInt
+
+OneEightyDegreeInt ::= INTEGER{
+    min(-1799999999),
+    max(1800000000),
+    unknown(1800000001)
+}(-1799999999..1800000001)
+
+KnownLongitude ::= OneEightyDegreeInt(min..max)
+UnknownLongitude ::= OneEightyDegreeInt(unknown)
+
+
+-- ------------------------------------------------------------------
+--
+-- 证书
+--
+-- 版本号 编码值为2
+-- ------------------------------------------------------------------
+
+Certificate ::= SEQUENCE{
+    version Uint8,
+    issuerId IssuerId,
+    tbs TbsCert,
+    signature Signature
+}
+
+TbsCert ::= SEQUENCE{
+    subjectInfo SubjectInfo,
+    subjectAttributes  SubjectAttributes,
+    validityRestrictions ValidityRestrictions
+}
+
+IssuerId ::= CHOICE{
+    self [0] NULL,
+    certificateDigest [1] CertificateDigest,
+    ...
+}
+
+CertificateDigest ::= SEQUENCE{
+    algorithm HashAlgorithm,
+    digest HashedId8
+}
+
+SubjectInfo ::= SEQUENCE{
+    subjectType SubjectType,
+    subjectName OCTET STRING(SIZE(0..32))
+}
+
+SubjectType ::= ENUMERATED{
+    enrollmentCredential,
+    authorizationTicket,
+    authorizationAuthority,
+    rootCa,
+    crlSigner
+}
+
+SubjectAttributes ::= SEQUENCE{
+    verificationKey [0] PublicVerifyKey,
+    encryptionKey [1] PublicEncryptionKey OPTIONAL,
+    assuranceLevel [2] SubjectAssurance OPTIONAL,
+    itsAidList [3] SequenceOfitsAidList OPTIONAL,
+    itsAidSspList [4] SequenceOfitsAidSspList OPTIONAL,
+    ...
+}
+
+SubjectAssurance ::= OCTET STRING(SIZE(1))
+
+SequenceOfitsAidList ::= SEQUENCE OF ItsAid
+
+SequenceOfitsAidSspList ::= SEQUENCE OF ItsAidSsp
+
+ItsAid ::= Uint64
+
+ItsAidSsp ::= SEQUENCE{
+    itsAid ItsAid,
+    serviceSpecificPermissions OCTET STRING(SIZE(1..32))
+}
+
+ValidityRestrictions ::= SEQUENCE{
+    validityPeriod [0] ValidityPeriod,
+    region [1] GeographicRegion OPTIONAL,
+    ...
+}
+
+ValidityPeriod ::= CHOICE{
+    timeEnd [0] Time32,
+    timeStartAndEnd [1] TimeStartAndEnd
+}
+
+TimeStartAndEnd ::= SEQUENCE{
+    startValidity Time32,
+    endValidity Time32
+}
+
+Signature ::= SEQUENCE{
+    curve EccCurve,
+    r ECCPoint,
+    s OCTET STRING(SIZE(32))
+}
+
+
+-- ------------------------------------------------------------------
+--
+-- 证书撤销列表格式
+--
+-- version:版本为1
+-- issuerId:该值不能取self。如果包含签名公钥的证书的subjectType为rootCa
+-- 的话，该值只能取certificateDigestWithSM3。 
+-- ------------------------------------------------------------------
+
+
+Crl ::= SEQUENCE{
+    version Uint8,
+    issuerId IssuerId,
+    unsignedCrl ToBeSignedCrl,
+    signature Signature
+}
+
+ToBeSignedCrl ::=SEQUENCE{
+    crlSerial Uint32,
+    issueDate Time32,
+    nextCrl Time32,
+    entries SequenceOfRevokeInfo
+}
+
+SequenceOfRevokeInfo ::= SEQUENCE OF RevokeInfo
+
+RevokeInfo ::= SEQUENCE{
+    id HashedId10,
+    hashAlg HashAlgorithm,
+    expiry Time32 OPTIONAL,
+    ...
+}
+
+-- ------------------------------------------------------------------
+--
+-- 新加 begin
+--
+-- ------------------------------------------------------------------
+
+
+Time64 ::= Uint64
+
+SequenceOfCertificate ::= SEQUENCE OF Certificate
+
+EciesP256EncryptedKey ::= SEQUENCE  {
+    v               EccP256CurvePoint,
+    c               OCTET STRING (SIZE (16)),
+    t               OCTET STRING (SIZE (16))
+}
+
+Opaque ::= OCTET STRING
+
+EccP256CurvePoint ::= CHOICE  {
+    x-only         [0]  OCTET STRING (SIZE (32)),
+    fill           [1] NULL,  -- consistency with 1363 / X9.62
+    compressed-y-0 [2] OCTET STRING (SIZE (32)),
+    compressed-y-1 [3]  OCTET STRING (SIZE (32)),
+    uncompressedP256 [4] SEQUENCE  {
+        x OCTET STRING (SIZE (32)),
+        y OCTET STRING (SIZE (32))
+    }
+}
+
+-- ------------------------------------------------------------------
+--
+-- 新加 end
+--
+-- ------------------------------------------------------------------
+
+-- 这个需不需要呢？
+SignedDataPayload ::= SEQUENCE { 
+ data [0] Ieee1609Dot2Data OPTIONAL, 
+ extDataHash [1] HashedData OPTIONAL, 
+ ... 
+} 
+ (WITH COMPONENTS {..., data PRESENT} | 
+ WITH COMPONENTS {..., extDataHash PRESENT}) 
+Ieee1609Dot2Data ::= SEQUENCE { 
+ protocolVersion Uint8(3), 
+ content Ieee1609Dot2Content 
+} 
+Ieee1609Dot2Content ::= CHOICE { 
+ unsecuredData [0] Opaque, 
+ signedData [1] SignedData, 
+ encryptedData [2] EncryptedData, 
+ signedCertificateRequest [3] Opaque, 
+ ... 
+} 
+SignedData ::= SEQUENCE { 
+ hashId HashAlgorithm, 
+ tbsData ToBeSignedData, 
+ signer SignerIdentifier, 
+ signature Signature 
+} 
+SignerIdentifier ::= CHOICE { 
+ digest [0] HashedId8, 
+ certificate [1] SequenceOfCertificate, 
+ self [2] NULL, 
+ ... 
+}
+ToBeSignedData ::= SEQUENCE { 
+ payload SignedDataPayload, 
+ headerInfo HeaderInfo 
+} 
+HashedData::= CHOICE { 
+ sm3HashedData [0] OCTET STRING (SIZE(32)), 
+ sha256HashedData [1] OCTET STRING (SIZE(32)), 
+ ... 
+} 
+HeaderInfo ::= SEQUENCE { 
+ generationTime [0] Time64 OPTIONAL,
+ expiryTime [1] Time64 OPTIONAL,
+ generationLocation [2] ThreeDLocation OPTIONAL
+}
+EncryptedData ::= SEQUENCE { 
+ recipients SequenceOfRecipientInfo, 
+ ciphertext SymmetricCiphertext 
+} 
+RecipientInfo ::= CHOICE { 
+ pskRecipInfo [0] PreSharedKeyRecipientInfo, 
+ symmRecipInfo [1] SymmRecipientInfo, 
+ certRecipInfo [2] PKRecipientInfo, 
+ signedDataRecipInfo [3] PKRecipientInfo, 
+ rekRecipInfo [4] PKRecipientInfo 
+} 
+SequenceOfRecipientInfo ::= SEQUENCE OF RecipientInfo 
+ 
+PreSharedKeyRecipientInfo ::= HashedId8 
+SymmRecipientInfo ::= SEQUENCE { 
+ recipientId HashedId8, 
+ encKey SymmetricCiphertext 
+}
+PKRecipientInfo ::= SEQUENCE { 
+ recipientId HashedId8, 
+ encKey EncryptedDataEncryptionKey 
+} 
+EncryptedDataEncryptionKey ::= CHOICE { 
+ eciesNistP256 [0] EciesP256EncryptedKey, 
+ eciesBrainpoolP256r1 [1] EciesP256EncryptedKey, 
+ ... 
+} 
+SymmetricCiphertext ::= CHOICE { 
+ sgdsm4 [0] SgdSm4Ciphertext,
+ aes128ccm [1] AesCcmCiphertext, 
+ ... 
+}
+SgdSm4Ciphertext ::= SEQUENCE { 
+ iv OCTET STRING (SIZE (16)),
+ ciphertext Opaque
+} 
+AesCcmCiphertext ::= SEQUENCE { 
+ nonce OCTET STRING (SIZE (12)), 
+ ccmCiphertext Opaque -- 16 bytes longer than plaintext 
+}
+
+END
