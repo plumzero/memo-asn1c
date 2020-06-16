@@ -11,25 +11,12 @@ static int write_callback(const void *buffer, size_t size, void *app_key)
 }
 
 /**
-    功能：
-        1.将ASN.1编码为der格式;
-        2.对函数的释放进行测试;
-        3.对ASN.1的SEQUENCE类型进行编码测试
-    ASN.1结构：
-            Rectangle ::= SEQUENCE 
-            {
-                height  INTEGER(0..127),
-                width   INTEGER
-            }
-    注意：
-        1.Rectangle 的ASN.1结构对应的C结构定义在 Rectangle.h 中；
-        2.asn_DEF_Rectangle 是 asn_TYPE_descriptor_t 类型的全局变量，定义在 Rectangle.h 中；
-    测试：
-        内存泄漏测试
-            valgrind --tool=memcheck --leak-check=full ./asn2der out.der
-        生成文件测试
-            openssl asn1parse -inform der -in out.der -i
- */ 
+  *  测试：
+  *      内存泄漏测试
+  *          valgrind --tool=memcheck --leak-check=full ./exe out.der
+  *      生成文件测试
+  *          openssl asn1parse -inform der -in out.der -i
+  */ 
 int main(int argc, char *argv[])
 {
     int ret = -1;

@@ -1,5 +1,6 @@
-Rectangle DEFNIITIONS ::= BEGIN
-    
+   
+TestRect DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+	
     Rectangle ::= SEQUENCE 
     {
         height  INTEGER,
