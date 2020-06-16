@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.0.2)
 project("asn1 test" C)
 
 option(BUILD_DYNAMIC_ASN1       "build the libasn1.so"  ON)
-option(BUILD_OER_EXECUTE        "build executable program about oer directly"   ON)
-option(BUILD_DER_EXECUTE        "build executable program about der directly"   ON)
+option(BUILD_OER_EXECUTE        "build executable program about oer directly"   OFF)
+option(BUILD_DER_EXECUTE        "build executable program about der directly"   OFF)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W -fvisibility=default")
 set(CMAKE_BUILD_TYPE  DEBUG)
 
 # asn1 源文件及头文件路径由外部传入
