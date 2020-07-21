@@ -12,8 +12,8 @@
 
 ## 对 asn1 编码的学习分为两部分
 - 建立世界观: 对语法的学习
-    + asn1练习.asn1   -  敲一敲它大致语法，只看是没用的；
-    + asn1结构.md     - 不求大求全，但对于常用的，还是要细致了解的；
+    + asn1练习.asn1   -  敲一敲它大致语法；
+    + asn1结构.md     - 不求全面，但对于常用的，还是要细致了解的；
     + asn1编码规则.md - 仅作了解，体会 ASN.1 编码思想，并不作深入研究； 
 - 掌握方法论: 对 asn1c 的学习
     + 使用asn1c命令.md - asn1c的编译及常用命令使用；
@@ -25,12 +25,4 @@
 - asn1c 的作者已经挂机好久了，很多 issue 没有进行处理，即使有些 issue 确实是 bug ;
 - 虽然 asn1c 不是万能的，但对于 c/c++ 程序员来说，它是实现 asn1 编码的最好选择。asn1c
   不能解决所有的问题，但可以解决大部分的问题。
-- 个人对 asn1c
-    + confused with it
-    + try use it
-    + be afraid of something bad would happen
-    + overcome and verify it
-    + understand it
-    + accept it
-    + just use it like an idiot
   
