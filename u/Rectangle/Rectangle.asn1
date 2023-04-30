@@ -1,0 +1,10 @@
+   
+TestRect DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+	
+    Rectangle ::= SEQUENCE 
+    {
+        height  INTEGER,
+        width   INTEGER
+    }
+
+END
