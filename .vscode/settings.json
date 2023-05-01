@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "asn_internal.h": "c",
+        "float.h": "c"
+    }
+}
